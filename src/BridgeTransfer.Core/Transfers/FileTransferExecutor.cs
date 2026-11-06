@@ -79,6 +79,27 @@ public sealed class FileTransferExecutor
                 }
             }
 
+            // 0. Fast path for selected items: decide from the destination folder listing taken when the
+            //    folders were prepared, so that skipping or asking costs no network round trip.
+            var knownAbsent = false;
+            if (task.Job.Kind == JobKind.Items && !task.FreshDestination &&
+                task.Job.DestinationIndex.TryLookup(destination, task.DestinationPath, out var listed))
+            {
+                if (listed is null)
+                {
+                    knownAbsent = true;
+                }
+                else
+                {
+                    var scanned = new FileEntry(source.GetName(task.SourcePath), task.SourcePath, EntryKind.File, task.ExpectedLength, task.SourceModifiedUtc);
+                    var early = Decide(task, scanned, listed);
+                    if (early.Outcome is not null)
+                    {
+                        return early.Outcome;
+                    }
+                }
+            }
+
             // 1. Source checks.
             var src = await source.GetEntryAsync(task.SourcePath, ct).ConfigureAwait(false);
             if (src is null)
@@ -100,8 +121,9 @@ public sealed class FileTransferExecutor
             task.ExpectedLength = src.Length;
             task.SourceModifiedUtc = src.ModifiedUtc;
 
-            // 2. Destination checks and conflict decisions.
-            var dst = await destination.GetEntryAsync(task.DestinationPath, ct).ConfigureAwait(false);
+            // 2. Destination checks and conflict decisions. A destination known to be absent is not
+            //    checked again here: the exclusive create and the no-replace rename catch late arrivals.
+            var dst = knownAbsent ? null : await destination.GetEntryAsync(task.DestinationPath, ct).ConfigureAwait(false);
             var replace = false;
             if (task.Job.Kind == JobKind.Sync)
             {
@@ -129,40 +151,20 @@ public sealed class FileTransferExecutor
             }
             else if (dst is not null)
             {
-                var kind = !dst.IsFile ? ConflictKind.TypeConflict : IsNewer(dst, src) ? ConflictKind.DestinationNewer : ConflictKind.FileExists;
-                var choice = task.Decision ?? task.Job.ConflictPolicy.ChoiceFor(kind);
-                if (choice == ConflictChoice.Replace && kind == ConflictKind.TypeConflict)
+                var decision = Decide(task, src, dst);
+                if (decision.Outcome is not null)
                 {
-                    choice = ConflictChoice.Ask;
+                    return decision.Outcome;
                 }
 
-                if (choice == ConflictChoice.Replace && kind == ConflictKind.DestinationNewer && !task.NewerReplaceApproved)
+                if (decision.Action == ConflictChoice.KeepBoth)
                 {
-                    choice = ConflictChoice.Ask;
+                    await ChooseKeepBothNameAsync(task, destination, ct).ConfigureAwait(false);
                 }
-
-                switch (choice)
+                else
                 {
-                    case ConflictChoice.Ask:
-                        task.Decision = null;
-                        return new FileOutcome(
-                            FileOutcomeKind.NeedsDecision,
-                            kind switch
-                            {
-                                ConflictKind.TypeConflict => "A folder or link with this name already exists.",
-                                ConflictKind.DestinationNewer => "A newer file with this name already exists.",
-                                _ => "A file with this name already exists.",
-                            },
-                            Conflict: new ConflictRequest(task.Job.Id, task.Id, task.Job.Direction, task.RelativePath, task.DestinationPath, kind, src, dst));
-                    case ConflictChoice.Skip:
-                        return new FileOutcome(FileOutcomeKind.Skipped, "Skipped because the destination already exists.", FailureKind.AlreadyExists);
-                    case ConflictChoice.KeepBoth:
-                        await ChooseKeepBothNameAsync(task, destination, ct).ConfigureAwait(false);
-                        break;
-                    case ConflictChoice.Replace:
-                        replace = true;
-                        task.ReplaceTarget = EntrySnapshot.From(dst);
-                        break;
+                    replace = true;
+                    task.ReplaceTarget = EntrySnapshot.From(dst);
                 }
             }
 
@@ -222,7 +224,23 @@ public sealed class FileTransferExecutor
                 return Fail(FailureKind.VerificationFailed, $"Copied {counted:N0} bytes but the source has {src.Length:N0} bytes. The destination was left unchanged.");
             }
 
-            var staged = await destination.GetEntryAsync(staging, ct).ConfigureAwait(false);
+            // 6. Preserve the modification time on the staged file (a failure is only a warning) and
+            //    verify its size from the same server reply.
+            string? warning = null;
+            FileEntry? staged = null;
+            if (_options.PreserveTimestamps && src.ModifiedUtc is { } mtime)
+            {
+                try
+                {
+                    staged = await destination.SetModifiedTimeAsync(staging, mtime, ct).ConfigureAwait(false);
+                }
+                catch (StoreException ex) when (ex.Kind is not (FailureKind.Transient or FailureKind.Cancelled))
+                {
+                    warning = "The file was copied, but its modification time could not be preserved.";
+                }
+            }
+
+            staged ??= await destination.GetEntryAsync(staging, ct).ConfigureAwait(false);
             if (staged is null || !staged.IsFile || staged.Length != counted)
             {
                 await DeleteStagingAsync(task, destination, staging).ConfigureAwait(false);
@@ -230,20 +248,6 @@ public sealed class FileTransferExecutor
             }
 
             task.SetBytesDone(counted);
-
-            // 6. Preserve the modification time on the staged file (a failure is only a warning).
-            string? warning = null;
-            if (_options.PreserveTimestamps && src.ModifiedUtc is { } mtime)
-            {
-                try
-                {
-                    await destination.SetModifiedTimeAsync(staging, mtime, ct).ConfigureAwait(false);
-                }
-                catch (StoreException ex) when (ex.Kind is not (FailureKind.Transient or FailureKind.Cancelled))
-                {
-                    warning = "The file was copied, but its modification time could not be preserved.";
-                }
-            }
 
             ct.ThrowIfCancellationRequested();
 
@@ -278,8 +282,9 @@ public sealed class FileTransferExecutor
 
     private static FileOutcome Fail(FailureKind kind, string message) => new(FileOutcomeKind.Failed, message, kind);
 
-    private bool IsNewer(FileEntry destination, FileEntry source) =>
-        destination.ModifiedUtc is { } d && source.ModifiedUtc is { } s && d - s > _options.TimeTolerance;
+    /// <summary>True when <paramref name="a"/> was modified more than the tolerance after <paramref name="b"/>.</summary>
+    private bool IsNewer(FileEntry a, FileEntry b) =>
+        a.ModifiedUtc is { } x && b.ModifiedUtc is { } y && x - y > _options.TimeTolerance;
 
     private async Task ChooseKeepBothNameAsync(FileTask task, IFileStore destination, CancellationToken ct)
     {
@@ -316,12 +321,12 @@ public sealed class FileTransferExecutor
     private async Task<FileOutcome> PromoteAsync(FileTask task, IFileStore destination, string staging, EntrySnapshot srcSnap, bool replace, long counted, string? warning)
     {
         var ct = CancellationToken.None;
-        var current = await destination.GetEntryAsync(task.DestinationPath, ct).ConfigureAwait(false);
         task.PendingPromotion = (staging, task.DestinationPath, srcSnap);
-        if (current is null)
+        if (!replace)
         {
             try
             {
+                // Refuses to overwrite: if anything appeared at the destination meanwhile, it is kept.
                 await destination.MoveNoReplaceAsync(staging, task.DestinationPath, ct).ConfigureAwait(false);
             }
             catch (StoreException ex) when (ex.Kind == FailureKind.AlreadyExists)
@@ -329,17 +334,35 @@ public sealed class FileTransferExecutor
                 task.PendingPromotion = null;
                 await DeleteStagingAsync(task, destination, staging).ConfigureAwait(false);
                 task.Decision = null;
+                task.FreshDestination = true;
                 return new FileOutcome(FileOutcomeKind.Requeue, "The destination appeared while copying; checking again.", FailureKind.DestinationChanged);
             }
         }
         else
         {
+            var current = await destination.GetEntryAsync(task.DestinationPath, ct).ConfigureAwait(false);
             var expected = task.Job.Kind == JobKind.Sync ? task.ExpectedDestination?.Snapshot : task.ReplaceTarget;
-            if (!replace || !current.IsFile || expected is null || !expected.SameAs(EntrySnapshot.From(current)))
+            if (current is null)
+            {
+                try
+                {
+                    await destination.MoveNoReplaceAsync(staging, task.DestinationPath, ct).ConfigureAwait(false);
+                }
+                catch (StoreException ex) when (ex.Kind == FailureKind.AlreadyExists)
+                {
+                    task.PendingPromotion = null;
+                    await DeleteStagingAsync(task, destination, staging).ConfigureAwait(false);
+                    task.Decision = null;
+                    task.FreshDestination = true;
+                    return new FileOutcome(FileOutcomeKind.Requeue, "The destination changed while copying; checking again.", FailureKind.DestinationChanged);
+                }
+            }
+            else if (!current.IsFile || expected is null || !expected.SameAs(EntrySnapshot.From(current)))
             {
                 task.PendingPromotion = null;
                 await DeleteStagingAsync(task, destination, staging).ConfigureAwait(false);
                 task.Decision = null;
+                task.FreshDestination = true;
                 if (task.Job.Kind == JobKind.Sync)
                 {
                     return new FileOutcome(FileOutcomeKind.Skipped, "The destination changed during the transfer. It was left unchanged; compare again to review it.", FailureKind.DestinationChanged);
@@ -347,34 +370,113 @@ public sealed class FileTransferExecutor
 
                 return new FileOutcome(FileOutcomeKind.Requeue, "The destination changed while copying; asking again.", FailureKind.DestinationChanged);
             }
-
-            try
+            else
             {
-                await destination.MoveReplaceAsync(staging, task.DestinationPath, ct).ConfigureAwait(false);
-            }
-            catch (StoreException ex) when (ex.Kind == FailureKind.ReplaceNotSupported)
-            {
-                task.PendingPromotion = null;
-                await DeleteStagingAsync(task, destination, staging).ConfigureAwait(false);
-                return Fail(FailureKind.ReplaceNotSupported, ex.Message);
+                try
+                {
+                    await destination.MoveReplaceAsync(staging, task.DestinationPath, ct).ConfigureAwait(false);
+                }
+                catch (StoreException ex) when (ex.Kind == FailureKind.ReplaceNotSupported)
+                {
+                    task.PendingPromotion = null;
+                    await DeleteStagingAsync(task, destination, staging).ConfigureAwait(false);
+                    return Fail(FailureKind.ReplaceNotSupported, ex.Message);
+                }
             }
         }
 
+        // The staged file was verified (size) before the rename, and the rename is a single step.
         task.PendingPromotion = null;
         task.OwnedStagingPaths.Remove(staging);
         _staging.Unregister(staging);
-
-        var final = await destination.GetEntryAsync(task.DestinationPath, ct).ConfigureAwait(false);
-        if (final is null || final.Length != counted)
-        {
-            return Fail(FailureKind.VerificationFailed, "After the final rename the destination size does not match. Please check the file.");
-        }
 
         var renamed = !string.Equals(task.DestinationPath, task.OriginalDestinationPath, StringComparison.Ordinal);
         var note = renamed ? $"Saved as {destination.GetName(task.DestinationPath)} (kept both)." : null;
         return warning is null
             ? new FileOutcome(FileOutcomeKind.Completed, note)
             : new FileOutcome(FileOutcomeKind.CompletedWithWarning, note is null ? warning : note + " " + warning);
+    }
+
+    private sealed record Decision(ConflictChoice Action, FileOutcome? Outcome);
+
+    /// <summary>
+    /// Resolves what to do with an existing destination: an outcome (skip or ask) or an action
+    /// (replace or keep both). A newer destination is never replaced without explicit approval.
+    /// </summary>
+    private Decision Decide(FileTask task, FileEntry src, FileEntry dst)
+    {
+        var kind = !dst.IsFile ? ConflictKind.TypeConflict : IsNewer(dst, src) ? ConflictKind.DestinationNewer : ConflictKind.FileExists;
+        var choice = task.Decision ?? task.Job.ConflictPolicy.ChoiceFor(kind);
+        string? skipMessage = null;
+        if (choice.IsRule())
+        {
+            if (kind == ConflictKind.TypeConflict)
+            {
+                choice = ConflictChoice.Ask;
+            }
+            else
+            {
+                var srcNewer = IsNewer(src, dst);
+                var sizeDiffers = src.Length != dst.Length;
+                var timeUnknown = src.ModifiedUtc is null || dst.ModifiedUtc is null;
+                var wanted = choice switch
+                {
+                    ConflictChoice.ReplaceIfNewer => srcNewer,
+                    ConflictChoice.ReplaceIfSizeDiffers => sizeDiffers,
+                    _ => srcNewer || sizeDiffers,
+                };
+                if (!wanted && timeUnknown && choice != ConflictChoice.ReplaceIfSizeDiffers)
+                {
+                    choice = ConflictChoice.Ask; // Cannot tell which file is newer.
+                }
+                else if (wanted)
+                {
+                    choice = ConflictChoice.Replace;
+                }
+                else
+                {
+                    skipMessage = choice switch
+                    {
+                        ConflictChoice.ReplaceIfNewer => "Skipped: the existing file is not older than this one.",
+                        ConflictChoice.ReplaceIfSizeDiffers => "Skipped: the existing file has the same size.",
+                        _ => "Skipped: the existing file has the same size and is not older.",
+                    };
+                    choice = ConflictChoice.Skip;
+                }
+            }
+        }
+
+        if (choice == ConflictChoice.Replace && kind == ConflictKind.TypeConflict)
+        {
+            choice = ConflictChoice.Ask;
+        }
+
+        if (choice == ConflictChoice.Replace && kind == ConflictKind.DestinationNewer && !task.NewerReplaceApproved)
+        {
+            choice = ConflictChoice.Ask;
+        }
+
+        return choice switch
+        {
+            ConflictChoice.Ask => AskOutcome(task, kind, src, dst),
+            ConflictChoice.Skip => new Decision(choice, new FileOutcome(FileOutcomeKind.Skipped, skipMessage ?? "Skipped because the destination already exists.", FailureKind.AlreadyExists)),
+            _ => new Decision(choice, null),
+        };
+    }
+
+    private static Decision AskOutcome(FileTask task, ConflictKind kind, FileEntry src, FileEntry dst)
+    {
+        task.Decision = null;
+        var message = kind switch
+        {
+            ConflictKind.TypeConflict => "A folder or link with this name already exists.",
+            ConflictKind.DestinationNewer => "A newer file with this name already exists.",
+            _ => "A file with this name already exists.",
+        };
+        return new Decision(ConflictChoice.Ask, new FileOutcome(
+            FileOutcomeKind.NeedsDecision,
+            message,
+            Conflict: new ConflictRequest(task.Job.Id, task.Id, task.Job.Direction, task.RelativePath, task.DestinationPath, kind, src, dst)));
     }
 
     /// <summary>After a failure during rename, decides from the actual state whether the rename happened.</summary>

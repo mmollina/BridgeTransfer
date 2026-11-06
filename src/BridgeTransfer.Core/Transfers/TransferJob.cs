@@ -80,6 +80,9 @@ public sealed class FileTask
 
     internal int Requeues { get; set; }
 
+    /// <summary>Ignore the folder listing and check the live destination (set after a surprise).</summary>
+    internal bool FreshDestination { get; set; }
+
     /// <summary>The open question while this file waits for a decision.</summary>
     public ConflictRequest? PendingConflict { get; internal set; }
 
@@ -151,6 +154,7 @@ public sealed class TransferJob
         DisplayName = displayName;
         SourceDescription = sourceDescription;
         DestinationDirectory = destinationDirectory;
+        InitIndex();
     }
 
     public Guid Id { get; } = Guid.NewGuid();
@@ -186,6 +190,11 @@ public sealed class TransferJob
     public List<PlannedSkip> ScanSkipped { get; } = new();
 
     public BatchConflictPolicy ConflictPolicy { get; } = new();
+
+    /// <summary>Destination folder listings taken while preparing folders.</summary>
+    public DestinationIndex DestinationIndex { get; private set; } = null!;
+
+    internal void InitIndex() => DestinationIndex = new DestinationIndex(Direction.DestinationSide() == EndpointSide.Local);
 
     public bool CancelRequested { get; internal set; }
 

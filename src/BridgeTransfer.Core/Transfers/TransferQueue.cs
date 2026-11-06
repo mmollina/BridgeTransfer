@@ -35,6 +35,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
     private int _maxConcurrency = 2;
     private bool _journalDirty;
     private DateTime _lastTrim = DateTime.UtcNow;
+    private DateTime _lastJournalFlush = DateTime.MinValue;
 
     public TransferQueue(ITransferSessionFactory factory, IJobJournal journal, TransferOptions options, Action<string>? log = null)
     {
@@ -45,6 +46,9 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
         _executor = new FileTransferExecutor(options, this, this);
         _pump = Task.Run(PumpLoopAsync);
     }
+
+    /// <summary>Upper limit for simultaneous files (each uses its own SFTP connection).</summary>
+    public const int MaxAllowedConcurrency = 10;
 
     public TransferOptions Options { get; }
 
@@ -62,7 +66,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
         get => Volatile.Read(ref _maxConcurrency);
         set
         {
-            Volatile.Write(ref _maxConcurrency, Math.Clamp(value, 1, 4));
+            Volatile.Write(ref _maxConcurrency, Math.Clamp(value, 1, MaxAllowedConcurrency));
             Signal();
         }
     }
@@ -113,7 +117,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
     }
 
     /// <summary>Queues selected items to be copied into <paramref name="destinationDirectory"/>.</summary>
-    public TransferJob EnqueueItems(ConnectionKey connection, TransferDirection direction, IReadOnlyList<FileEntry> selection, string sourceDirectory, string destinationDirectory)
+    public TransferJob EnqueueItems(ConnectionKey connection, TransferDirection direction, IReadOnlyList<FileEntry> selection, string sourceDirectory, string destinationDirectory, ConflictChoice whenExists = ConflictChoice.Ask)
     {
         if (selection.Count == 0)
         {
@@ -126,6 +130,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
             Selection = selection.ToList(),
             Phase = JobPhase.NeedsScan,
         };
+        job.ConflictPolicy.SetInitial(whenExists);
         Add(job);
         return job;
     }
@@ -308,15 +313,16 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
     }
 
     /// <summary>Applies the user's decision for one conflict, optionally to the rest of the batch.</summary>
-    public void ResolveConflict(ConflictRequest request, ConflictChoice choice, bool applyToRemaining)
+    public void ResolveConflict(ConflictRequest request, ConflictChoice choice, bool applyToRemaining) =>
+        ResolveConflict(request, choice, applyToRemaining ? ConflictScope.ThisTransfer : ConflictScope.ThisFile);
+
+    /// <summary>
+    /// Applies the user's decision to one file, to the rest of its transfer, or to every transfer in
+    /// the queue. A newer destination is never replaced by a batch-wide choice; it is asked about.
+    /// </summary>
+    public void ResolveConflict(ConflictRequest request, ConflictChoice choice, ConflictScope scope)
     {
         if (choice == ConflictChoice.Ask)
-        {
-            return;
-        }
-
-        var job = Jobs.FirstOrDefault(j => j.Id == request.JobId);
-        if (job is null)
         {
             return;
         }
@@ -326,31 +332,49 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
             throw new InvalidOperationException("A folder or link cannot be replaced by a file.");
         }
 
+        var job = Jobs.FirstOrDefault(j => j.Id == request.JobId);
+        if (job is null)
+        {
+            return;
+        }
+
         lock (job.Sync)
         {
             var task = job.Files.FirstOrDefault(f => f.Id == request.TaskId);
-            if (task is null || task.State != TransferState.WaitingForDecision)
+            if (task is not null && task.State == TransferState.WaitingForDecision)
             {
-                return;
+                task.Decision = choice;
+
+                // Choosing Replace (or a replace rule) in the dialog of a newer file is an explicit approval for that file.
+                task.NewerReplaceApproved = request.Kind == ConflictKind.DestinationNewer && (choice == ConflictChoice.Replace || choice.IsRule());
+                task.PendingConflict = null;
+                task.State = TransferState.Queued;
+                task.Message = $"Will {choice.Label().ToLowerInvariant()}.";
             }
+        }
 
-            task.Decision = choice;
-            task.NewerReplaceApproved = choice == ConflictChoice.Replace && request.Kind == ConflictKind.DestinationNewer;
-            task.PendingConflict = null;
-            task.State = TransferState.Queued;
-            task.Message = choice switch
+        var targets = scope switch
+        {
+            ConflictScope.ThisTransfer => new[] { job },
+            ConflictScope.WholeQueue => Jobs.Where(j => !j.State.IsFinal()).ToArray(),
+            _ => Array.Empty<TransferJob>(),
+        };
+        foreach (var target in targets)
+        {
+            lock (target.Sync)
             {
-                ConflictChoice.Skip => "Will skip.",
-                ConflictChoice.Replace => "Will replace the existing file.",
-                _ => "Will keep both files.",
-            };
-
-            if (applyToRemaining)
-            {
-                job.ConflictPolicy.ApplyToRemaining(request.Kind, choice);
-                foreach (var other in job.Files.Where(f => f.State == TransferState.WaitingForDecision && f.PendingConflict is not null))
+                if (choice.IsRule())
                 {
-                    var c = job.ConflictPolicy.ChoiceFor(other.PendingConflict!.Kind);
+                    target.ConflictPolicy.ApplyToRemaining(ConflictKind.FileExists, choice);
+                }
+                else
+                {
+                    target.ConflictPolicy.ApplyToRemaining(request.Kind, choice);
+                }
+
+                foreach (var other in target.Files.Where(f => f.State == TransferState.WaitingForDecision && f.PendingConflict is not null))
+                {
+                    var c = target.ConflictPolicy.ChoiceFor(other.PendingConflict!.Kind);
                     if (c != ConflictChoice.Ask)
                     {
                         other.PendingConflict = null;
@@ -471,7 +495,12 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
             {
                 StartWork();
                 SampleMeters();
-                FlushJournal();
+
+                // State changes are written at most once a second; staging files are written immediately.
+                if (DateTime.UtcNow - _lastJournalFlush > TimeSpan.FromSeconds(1))
+                {
+                    FlushJournal();
+                }
                 if (DateTime.UtcNow - _lastTrim > TimeSpan.FromSeconds(10))
                 {
                     _lastTrim = DateTime.UtcNow;
@@ -711,6 +740,10 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
                 dirs = job.Directories.Where(d => !d.State.IsFinal()).OrderBy(d => RelativePath.Depth(d.RelativePath)).ToList();
             }
 
+            // One listing per destination folder replaces a status request per file and per folder.
+            var index = job.DestinationIndex;
+            await TryIndexAsync(dst, index, job.DestinationDirectory, cts.Token).ConfigureAwait(false);
+
             var failedRel = new List<string>();
             foreach (var dir in dirs)
             {
@@ -726,7 +759,36 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
                     continue;
                 }
 
-                var (state, kind, message) = await EnsureDirectoryAsync(dst, dir.DestinationPath, cts.Token).ConfigureAwait(false);
+                TransferState state;
+                FailureKind? kind;
+                string? message;
+                bool existed;
+                if (index.TryLookup(dst, dir.DestinationPath, out var listed) && listed is not null)
+                {
+                    (state, kind, message, existed) = listed.Kind switch
+                    {
+                        EntryKind.Directory => (TransferState.Completed, (FailureKind?)null, "Folder already existed; contents were merged.", true),
+                        EntryKind.SymbolicLink => (TransferState.Failed, FailureKind.LinkRedirect, "The destination folder is a link. Writing through links is refused.", true),
+                        _ => (TransferState.Failed, FailureKind.TypeConflict, "A file with this name exists where a folder is needed.", true),
+                    };
+                }
+                else
+                {
+                    (state, kind, message, existed) = await EnsureDirectoryAsync(dst, dir.DestinationPath, cts.Token).ConfigureAwait(false);
+                }
+
+                if (state == TransferState.Completed)
+                {
+                    if (existed)
+                    {
+                        await TryIndexAsync(dst, index, dir.DestinationPath, cts.Token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        index.SetEmpty(dst, dir.DestinationPath);
+                    }
+                }
+
                 lock (job.Sync)
                 {
                     dir.State = state;
@@ -812,7 +874,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
         }
     }
 
-    private static async Task<(TransferState, FailureKind?, string?)> EnsureDirectoryAsync(IFileStore dst, string path, CancellationToken ct)
+    private static async Task<(TransferState, FailureKind?, string?, bool Existed)> EnsureDirectoryAsync(IFileStore dst, string path, CancellationToken ct)
     {
         for (var attempt = 0; attempt < 2; attempt++)
         {
@@ -822,7 +884,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
                 try
                 {
                     await dst.CreateDirectoryAsync(path, ct).ConfigureAwait(false);
-                    return (TransferState.Completed, null, null);
+                    return (TransferState.Completed, null, null, false);
                 }
                 catch (StoreException ex) when (ex.Kind == FailureKind.AlreadyExists)
                 {
@@ -830,19 +892,31 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
                 }
                 catch (StoreException ex) when (!ex.IsTransient && ex.Kind != FailureKind.Cancelled)
                 {
-                    return (TransferState.Failed, ex.Kind, "The folder could not be created: " + ex.Message);
+                    return (TransferState.Failed, ex.Kind, "The folder could not be created: " + ex.Message, false);
                 }
             }
 
             return entry.Kind switch
             {
-                EntryKind.Directory => (TransferState.Completed, null, "Folder already existed; contents were merged."),
-                EntryKind.SymbolicLink => (TransferState.Failed, FailureKind.LinkRedirect, "The destination folder is a link. Writing through links is refused."),
-                _ => (TransferState.Failed, FailureKind.TypeConflict, "A file with this name exists where a folder is needed."),
+                EntryKind.Directory => (TransferState.Completed, null, "Folder already existed; contents were merged.", true),
+                EntryKind.SymbolicLink => (TransferState.Failed, FailureKind.LinkRedirect, "The destination folder is a link. Writing through links is refused.", true),
+                _ => (TransferState.Failed, FailureKind.TypeConflict, "A file with this name exists where a folder is needed.", true),
             };
         }
 
-        return (TransferState.Failed, FailureKind.DestinationChanged, "The destination kept changing while the folder was being created.");
+        return (TransferState.Failed, FailureKind.DestinationChanged, "The destination kept changing while the folder was being created.", true);
+    }
+
+    private static async Task TryIndexAsync(IFileStore dst, DestinationIndex index, string folder, CancellationToken ct)
+    {
+        try
+        {
+            index.SetListing(dst, folder, await dst.ListAsync(folder, ct).ConfigureAwait(false));
+        }
+        catch (StoreException ex) when (ex.Kind is not (FailureKind.Transient or FailureKind.Cancelled))
+        {
+            // Not listable (for example write-only): files there are checked one by one instead.
+        }
     }
 
     private async Task RunFileAsync(FileTask task)
@@ -1003,6 +1077,7 @@ public sealed class TransferQueue : IAsyncDisposable, IStagingRegistry, IDestina
             }
 
             _journalDirty = false;
+            _lastJournalFlush = DateTime.UtcNow;
             doc = new JournalDocument { WrittenUtc = DateTime.UtcNow };
             foreach (var job in _jobs)
             {

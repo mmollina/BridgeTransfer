@@ -1,11 +1,12 @@
 using System.Windows;
+using System.Windows.Controls;
 using BridgeTransfer.Core.Models;
 using BridgeTransfer.Core.Text;
 using BridgeTransfer.Core.Transfers;
 
 namespace BridgeTransfer.App.Views;
 
-/// <summary>Asks what to do with one existing destination item.</summary>
+/// <summary>Asks what to do with one existing destination item, and how widely to apply the answer.</summary>
 public partial class ConflictWindow
 {
     private ConflictChoice _choice = ConflictChoice.Ask;
@@ -15,7 +16,7 @@ public partial class ConflictWindow
         InitializeComponent();
     }
 
-    public static (ConflictChoice Choice, bool ApplyToRemaining)? Ask(ConflictRequest r, int otherWaiting)
+    public static (ConflictChoice Choice, ConflictScope Scope)? Ask(ConflictRequest r, int waitingInTransfer, int waitingInQueue)
     {
         var w = new ConflictWindow();
         var name = System.IO.Path.GetFileName(r.RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
@@ -34,7 +35,7 @@ public partial class ConflictWindow
             w.NewerBanner.Visibility = Visibility.Visible;
             w.NewerText.Text = "The existing file is newer than the one being copied. Replacing it loses the newer version.";
             w.ReplaceButton.Content = "Replace newer file";
-            w.ReplaceButton.Style = (Style)w.FindResource(typeof(System.Windows.Controls.Button));
+            w.ReplaceButton.Style = (Style)w.FindResource(typeof(Button));
         }
 
         if (r.Kind == ConflictKind.TypeConflict)
@@ -42,24 +43,24 @@ public partial class ConflictWindow
             w.NewerBanner.Visibility = Visibility.Visible;
             w.NewerText.Text = "A file cannot replace a folder or a link. Skip it, or keep both by copying the file under a new name.";
             w.ReplaceButton.Visibility = Visibility.Collapsed;
+            w.RulePanel.Visibility = Visibility.Collapsed;
         }
 
-        if (otherWaiting == 0)
-        {
-            w.ApplyAll.Content = "Apply to later conflicts in this transfer";
-        }
-        else
-        {
-            w.ApplyAll.Content = $"Apply to the remaining conflicts in this transfer ({otherWaiting:N0} waiting)";
-        }
-
-        w.ApplyNote.Visibility = r.Kind == ConflictKind.FileExists ? Visibility.Visible : Visibility.Collapsed;
+        w.ScopeTransfer.Content = waitingInTransfer > 0
+            ? $"All files in this transfer ({waitingInTransfer:N0} more waiting)"
+            : "All files in this transfer";
+        w.ScopeQueue.Content = waitingInQueue > waitingInTransfer
+            ? $"All files in every transfer in the queue ({waitingInQueue:N0} more waiting)"
+            : "All files in every transfer in the queue";
         if (w.ShowDialog() != true || w._choice == ConflictChoice.Ask)
         {
             return null;
         }
 
-        return (w._choice, w.ApplyAll.IsChecked == true);
+        var scope = w.ScopeBox.SelectedItem == w.ScopeQueue ? ConflictScope.WholeQueue
+            : w.ScopeBox.SelectedItem == w.ScopeTransfer ? ConflictScope.ThisTransfer
+            : ConflictScope.ThisFile;
+        return (w._choice, scope);
     }
 
     private void OnSkip(object sender, RoutedEventArgs e) => Finish(ConflictChoice.Skip);
@@ -67,6 +68,14 @@ public partial class ConflictWindow
     private void OnKeepBoth(object sender, RoutedEventArgs e) => Finish(ConflictChoice.KeepBoth);
 
     private void OnReplace(object sender, RoutedEventArgs e) => Finish(ConflictChoice.Replace);
+
+    private void OnRule(object sender, RoutedEventArgs e)
+    {
+        if (RuleBox.SelectedItem is ComboBoxItem { Tag: string tag } && Enum.TryParse<ConflictChoice>(tag, out var rule))
+        {
+            Finish(rule);
+        }
+    }
 
     private void Finish(ConflictChoice choice)
     {

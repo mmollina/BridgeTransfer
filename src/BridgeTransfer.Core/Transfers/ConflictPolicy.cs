@@ -58,6 +58,18 @@ public sealed class BatchConflictPolicy
     {
         lock (_gate)
         {
+            if (choice.IsRule())
+            {
+                // Rules decide per file; a newer destination is still never replaced without asking.
+                if (kind != ConflictKind.TypeConflict)
+                {
+                    _forExisting = choice;
+                    _forNewer = choice;
+                }
+
+                return;
+            }
+
             switch (kind)
             {
                 case ConflictKind.FileExists:
@@ -86,13 +98,14 @@ public sealed class BatchConflictPolicy
         }
     }
 
+    /// <summary>The choice made before the transfer started (in the confirmation dialog or settings).</summary>
     public void SetInitial(ConflictChoice choice)
     {
         lock (_gate)
         {
             _forExisting = choice;
             _forNewer = choice == ConflictChoice.Replace ? ConflictChoice.Ask : choice;
-            _forType = choice == ConflictChoice.Replace ? ConflictChoice.Ask : choice;
+            _forType = choice is ConflictChoice.Replace || choice.IsRule() ? ConflictChoice.Ask : choice;
         }
     }
 }

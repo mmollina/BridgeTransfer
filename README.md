@@ -7,7 +7,7 @@ reviewed one-way folder synchronization. Built with C#, .NET 10 and WPF; SFTP th
 
 ![Main window](docs/screenshots/04-connected.png)
 
-> **Status:** version 1.0.0. The engine and SFTP behaviour are covered by automated tests against a
+> **Status:** version 1.1.0. The engine and SFTP behaviour are covered by automated tests against a
 > real OpenSSH server, and the interface was exercised under Wine. The packaged single-file
 > `BridgeTransfer.exe` was built on Linux and **has not yet been launched on a Windows PC**. See
 > [docs/TEST_REPORT.md](docs/TEST_REPORT.md) and [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
@@ -35,8 +35,11 @@ Passwords and passphrases are asked for when you connect and are never saved.
   to the other, or drag files from Windows Explorer onto the Linux panel.
 - Before anything starts, BridgeTransfer shows the exact destination paths. Uploading the folder
   `project` into `/data` creates `/data/project`, including empty sub-folders.
-- If a file already exists you choose **Skip**, **Keep both** (saves `name (2).ext`) or **Replace**.
-  A newer file at the destination is never replaced without asking.
+- If a file already exists you choose **Skip**, **Keep both** (saves `name (2).ext`), **Replace**, or
+  **Replace only if newer / if the size differs / if either**, for one file, the whole transfer or
+  everything in the queue. You can also choose this before the transfer starts. A newer file at the
+  destination is never replaced without asking.
+- For folders with many small files, raise *Files transferred at the same time* in Settings (up to 10).
 - The queue at the bottom shows progress, speed and time left, and lets you cancel, retry failed
   items, clear finished ones or stop starting new files.
 

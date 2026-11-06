@@ -241,4 +241,50 @@ public class TransferTests
         Assert.Equal(10_000, localList.Count);
         Console.WriteLine($"Listed 10,000 local entries in {sw.ElapsedMilliseconds} ms");
     }
+
+    [FixtureFact]
+    public async Task Replace_if_newer_or_size_differs_and_fast_skip_on_real_server()
+    {
+        await using var ws = new Workspace();
+        var src = Path.Combine(ws.LocalDir, "d");
+        var dst = Path.Combine(ws.RemoteDir, "d");
+        Directory.CreateDirectory(src);
+        Directory.CreateDirectory(dst);
+        var old = DateTime.UtcNow.AddDays(-5);
+        var recent = DateTime.UtcNow.AddDays(-1);
+        void Pair(string name, string local, DateTime lt, string remote, DateTime rt)
+        {
+            File.WriteAllText(Path.Combine(src, name), local);
+            File.SetLastWriteTimeUtc(Path.Combine(src, name), lt);
+            File.WriteAllText(Path.Combine(dst, name), remote);
+            File.SetLastWriteTimeUtc(Path.Combine(dst, name), rt);
+        }
+
+        Pair("newer.txt", "LOCAL", recent, "REMOT", old);
+        Pair("size.txt", "LONGER LOCAL", old, "short", old);
+        Pair("same.txt", "SAME!", old, "SAME?", old);
+        for (var i = 0; i < 300; i++)
+        {
+            Pair($"many{i:000}.dat", "x", old, "y", old);
+        }
+
+        Workspace.Sh($"chown -R {Env.User} '{ws.RemoteDir}'");
+        await ws.ConnectAsync();
+        await using var q = ws.NewQueue();
+        var asked = 0;
+        q.ConflictRaised += _ => asked++;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var job = q.EnqueueItems(ws.Key, TransferDirection.Upload, new[] { (await ws.Local.GetEntryAsync(src, default))! }, ws.LocalDir, ws.RemoteDir, ConflictChoice.ReplaceIfNewerOrSizeDiffers);
+        await Workspace.WaitFinalAsync(job);
+        sw.Stop();
+        Assert.Equal(0, asked);
+        Assert.Equal("LOCAL", File.ReadAllText(Path.Combine(dst, "newer.txt")));
+        Assert.Equal("LONGER LOCAL", File.ReadAllText(Path.Combine(dst, "size.txt")));
+        Assert.Equal("SAME?", File.ReadAllText(Path.Combine(dst, "same.txt")));
+        Assert.Equal("y", File.ReadAllText(Path.Combine(dst, "many000.dat")));
+        Assert.Equal(301, job.Files.Count(f => f.State == TransferState.Skipped));
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(15), $"Deciding 303 existing files took {sw.Elapsed}");
+        Console.WriteLine($"303 existing files decided (2 replaced, 301 skipped) in {sw.ElapsedMilliseconds} ms");
+        Assert.False(ws.RemoteHasStagingFiles());
+    }
 }

@@ -57,7 +57,8 @@ public interface IFileStore
     /// <summary>Deletes a file. Used only for this application's own staging files.</summary>
     Task DeleteOwnedFileAsync(string path, CancellationToken cancellationToken);
 
-    Task SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken);
+    /// <summary>Sets the modification time and returns the item's metadata (size and type) observed while doing so.</summary>
+    Task<FileEntry?> SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken);
 
     /// <summary>Free bytes available at the path, or null if unknown.</summary>
     Task<long?> GetAvailableSpaceAsync(string path, CancellationToken cancellationToken);

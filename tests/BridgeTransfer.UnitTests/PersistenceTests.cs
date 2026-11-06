@@ -96,7 +96,7 @@ public class PersistenceTests : IDisposable
     public void Out_of_range_values_are_clamped()
     {
         var s = new AppSettings { MaxConcurrentTransfers = 12, ConnectTimeoutSeconds = 0 }.Normalize();
-        Assert.Equal(4, s.MaxConcurrentTransfers);
+        Assert.Equal(10, s.MaxConcurrentTransfers);
         Assert.Equal(5, s.ConnectTimeoutSeconds);
     }
 

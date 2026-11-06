@@ -15,17 +15,19 @@ public static class AtomicJson
         AllowTrailingCommas = true,
     };
 
-    public static void Write<T>(string path, T value, bool keepBackup = false)
+    /// <param name="durable">Flush to disk before the rename (settings). The queue journal skips this: it must survive an
+    /// application crash, which the operating system cache already guarantees, and it is written very often.</param>
+    public static void Write<T>(string path, T value, bool keepBackup = false, bool durable = true)
     {
         var dir = Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(dir);
         var tmp = Path.Combine(dir, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
         try
         {
-            using (var fs = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            using (var fs = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, durable ? FileOptions.WriteThrough : FileOptions.None))
             {
                 JsonSerializer.Serialize(fs, value, Options);
-                fs.Flush(flushToDisk: true);
+                fs.Flush(flushToDisk: durable);
             }
 
             if (keepBackup && File.Exists(path))

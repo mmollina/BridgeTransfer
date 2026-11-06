@@ -15,7 +15,7 @@ public sealed class JournalFileStore : IJobJournal
     {
         lock (_gate)
         {
-            AtomicJson.Write(_path, document);
+            AtomicJson.Write(_path, document, durable: false);
         }
     }
 

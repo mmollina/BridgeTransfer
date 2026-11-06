@@ -345,15 +345,15 @@ public sealed class InMemoryFileStore : IFileStore
         return Task.CompletedTask;
     }
 
-    public Task SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken)
+    public Task<FileEntry?> SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken)
     {
         Before("utime", path);
         lock (_gate)
         {
-            _nodes[path].ModifiedUtc = modifiedUtc;
+            var n = _nodes[path];
+            n.ModifiedUtc = modifiedUtc;
+            return Task.FromResult<FileEntry?>(ToEntry(n));
         }
-
-        return Task.CompletedTask;
     }
 
     public Task<long?> GetAvailableSpaceAsync(string path, CancellationToken cancellationToken) => Task.FromResult(AvailableSpace);

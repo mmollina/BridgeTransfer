@@ -43,5 +43,9 @@ public sealed class DialogService : IDialogService
         HostKeyWindow.ShowChanged(ex);
     }
 
-    public (ConflictChoice Choice, bool ApplyToRemaining)? AskConflict(ConflictRequest request, int otherWaiting) => ConflictWindow.Ask(request, otherWaiting);
+    public (ConflictChoice Choice, ConflictScope Scope)? AskConflict(ConflictRequest request, int waitingInTransfer, int waitingInQueue) =>
+        ConflictWindow.Ask(request, waitingInTransfer, waitingInQueue);
+
+    public ConflictChoice? ConfirmTransfer(string title, string message, string startText, ConflictChoice preselected) =>
+        TransferConfirmWindow.Ask(title, message, startText, preselected);
 }

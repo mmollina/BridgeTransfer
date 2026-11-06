@@ -560,6 +560,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         var links = entries.Count(e => e.Kind == EntryKind.SymbolicLink);
+        var whenExists = Services.Settings.WhenFileExists;
         if (Services.Settings.ConfirmBeforeTransfer)
         {
             var lines = entries.Take(6).Select(e => "    " + destPanel.Source.Combine(destinationDirectory, e.Name) + (e.IsDirectory ? "  (folder)" : "")).ToList();
@@ -571,16 +572,19 @@ public sealed partial class MainViewModel : ObservableObject
             var where = direction == TransferDirection.Upload ? $"the Linux VM ({key.Host})" : "this computer";
             var message =
                 $"{direction.Arrow()}\n\nDestination folder:\n    {destPanel.Source.DisplayPath(destinationDirectory)}\n\nResult:\n{string.Join("\n", lines)}\n\n" +
-                "Existing files are never replaced without asking. Folders are copied with their structure, including empty folders." +
+                "Folders are copied with their structure, including empty folders." +
                 (links > 0 ? $"\n\n{links} selected link(s) will be skipped." : "");
             var verb = direction == TransferDirection.Upload ? "Upload" : "Download";
-            if (!Dialogs.Confirm($"{verb} {entries.Count:N0} item{(entries.Count == 1 ? "" : "s")} to {where}?", message, verb))
+            var chosen = Dialogs.ConfirmTransfer($"{verb} {entries.Count:N0} item{(entries.Count == 1 ? "" : "s")} to {where}?", message, verb, whenExists);
+            if (chosen is null)
             {
                 return Task.CompletedTask;
             }
+
+            whenExists = chosen.Value;
         }
 
-        Services.Queue.EnqueueItems(key, direction, entries, sourceDirectory, destinationDirectory);
+        Services.Queue.EnqueueItems(key, direction, entries, sourceDirectory, destinationDirectory, whenExists);
         Services.Log.Info($"{direction} queued: {entries.Count} item(s) from {sourceDirectory} to {destinationDirectory}");
         QueueCollapsed = false;
         Queue.Refresh();

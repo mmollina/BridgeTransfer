@@ -50,11 +50,12 @@ If the VM becomes unreachable, the state changes to *Connection lost* and the Li
 ## Transferring files
 
 Select items and choose **Upload** or **Download**, or drag them to the other panel (drop on a folder
-row to copy into that folder). BridgeTransfer first shows exactly where the items will go:
+row to copy into that folder). BridgeTransfer first shows exactly where the items will go, and lets
+you decide up front what happens to files that already exist, so a large transfer never stops to ask:
 
 ![Confirm upload](screenshots/05-confirm-upload.png)
 
-(You can turn this confirmation off in Settings.)
+(You can turn this confirmation off in Settings; the default choice for existing files is set there too.)
 
 The queue shows each transfer with its direction, source and destination, state, bytes copied,
 speed and an estimate of the time left once enough data has been measured:
@@ -89,15 +90,35 @@ Version 1 does not resume: an interrupted file is copied again from the start.
 - **Keep both** copies this file as `name (2).ext` (or the next free number).
 - **Replace** replaces the existing file. If the existing file is *newer*, the dialog says so and the
   button reads **Replace newer file**.
-- **Apply to the remaining conflicts in this transfer** reuses your choice, except that a newer file
-  at the destination is always asked about individually.
+- **Replace only if the new file is…** *newer*, *a different size*, or *newer or a different size*,
+  then **Replace if so**. When the condition is not met, the file is skipped. "Newer" means modified
+  more than 2 seconds later.
+- **Use this choice for**: *this file only*, *all files in this transfer*, or *all files in every
+  transfer in the queue* (files already waiting are resolved at once, and later ones use the same
+  choice).
 - **Decide later** leaves the file waiting; the queue row shows **Decide…** so you can come back.
+
+The same choices are offered in the confirmation before a transfer starts (*If a file already
+exists*), and a default can be set in Settings.
+
+One safeguard always applies: a file that is **newer on the destination** is never replaced by a
+choice made for many files or chosen in advance. It is asked about on its own (and you can answer
+*Skip* for all of them at once). *Replace if newer* simply skips such files.
 
 A file never replaces a folder or link of the same name; only Skip and Keep both are offered then.
 If the VM's SFTP server cannot replace a file in one step, the existing file is kept and the
 transfer is reported as failed with that explanation.
 
 Renaming in a panel never overwrites another item either.
+
+## Speed
+
+Large files run at the speed of the network. Many small files are limited by the delay of each
+request to the VM rather than by bandwidth, because every file needs several requests (create the
+temporary file, write, verify, set the time, rename). Transferring several files at once hides most
+of that delay: set **Files transferred at the same time** in Settings to 6–8 for folders with many
+small files (up to 10; each uses its own connection). Skipping existing files is fast because each
+destination folder is listed once instead of checking every file.
 
 ## One-way synchronization
 
@@ -166,8 +187,9 @@ transfers and exit:
 
 ![Dark theme](screenshots/12-dark-main.png)
 
-Settings: light or dark theme, files transferred at the same time (1–4, default 2), preserving
-modification times, the transfer confirmation, connection and operation timeouts and keepalive.
+Settings: light or dark theme, files transferred at the same time (1–10, default 2), what to do
+when a file already exists, preserving modification times, the transfer confirmation, connection and
+operation timeouts and keepalive.
 **Export support log** saves the log as a zip where you choose; passwords are removed, but file and
 host names can appear, so check it before sharing. Nothing is uploaded.
 

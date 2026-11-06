@@ -2,13 +2,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:BridgeTransfer.App.Controls"
-        Title="File already exists" Width="600" SizeToContent="Height" ResizeMode="NoResize">
+        Title="File already exists" Width="640" SizeToContent="Height" ResizeMode="NoResize">
   <StackPanel Margin="24,20,24,20">
     <StackPanel Orientation="Horizontal">
       <Border x:Name="Badge" Width="32" Height="32" CornerRadius="16" Background="{DynamicResource Brush.WarningSoft}">
         <c:Glyph Data="{StaticResource Icon.Question}" Width="18" Height="18" Foreground="{DynamicResource Brush.Warning}" />
       </Border>
-      <TextBlock x:Name="Heading" Style="{StaticResource Text.Title}" Margin="12,5,0,0" TextWrapping="Wrap" MaxWidth="480" />
+      <TextBlock x:Name="Heading" Style="{StaticResource Text.Title}" Margin="12,5,0,0" TextWrapping="Wrap" MaxWidth="520" />
     </StackPanel>
     <TextBox x:Name="PathText" Style="{StaticResource Text.Mono}" Margin="44,8,0,0" Foreground="{DynamicResource Brush.TextMuted}" />
     <Border Style="{StaticResource Card}" Margin="44,14,0,0" Padding="14,10">
@@ -36,12 +36,37 @@
     <Border x:Name="NewerBanner" Style="{StaticResource Banner}" Margin="44,12,0,0" Visibility="Collapsed">
       <StackPanel Orientation="Horizontal">
         <c:Glyph Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Brush.Warning}" VerticalAlignment="Top" Margin="0,1,8,0" />
-        <TextBlock x:Name="NewerText" TextWrapping="Wrap" MaxWidth="450" />
+        <TextBlock x:Name="NewerText" TextWrapping="Wrap" MaxWidth="490" />
       </StackPanel>
     </Border>
-    <CheckBox x:Name="ApplyAll" Margin="44,14,0,0" Content="Apply to the remaining conflicts in this transfer" />
-    <TextBlock x:Name="ApplyNote" Style="{StaticResource Text.Small}" Margin="70,4,0,0" TextWrapping="Wrap"
-               Text="Newer files on the destination are always asked about one by one." />
+
+    <!-- Conditional replace, like "overwrite if newer / if size differs" -->
+    <StackPanel x:Name="RulePanel" Orientation="Horizontal" Margin="44,16,0,0">
+      <TextBlock Text="Replace only if the new file is" VerticalAlignment="Center" Margin="0,0,8,0" />
+      <ComboBox x:Name="RuleBox" Width="210" AutomationProperties.Name="Replace only if the new file is">
+        <ComboBoxItem Content="newer" Tag="ReplaceIfNewer" />
+        <ComboBoxItem Content="a different size" Tag="ReplaceIfSizeDiffers" />
+        <ComboBoxItem Content="newer or a different size" Tag="ReplaceIfNewerOrSizeDiffers" IsSelected="True" />
+      </ComboBox>
+      <Button x:Name="RuleButton" Content="Replace if so" Margin="8,0,0,0" Click="OnRule"
+              ToolTip="Replaces when the condition is true; otherwise this file is skipped." />
+    </StackPanel>
+
+    <Grid Margin="44,14,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Text="Use this choice for" VerticalAlignment="Center" Margin="0,0,8,0" />
+      <ComboBox x:Name="ScopeBox" Grid.Column="1" AutomationProperties.Name="Use this choice for">
+        <ComboBoxItem x:Name="ScopeFile" Content="This file only" IsSelected="True" />
+        <ComboBoxItem x:Name="ScopeTransfer" Content="All files in this transfer" />
+        <ComboBoxItem x:Name="ScopeQueue" Content="All files in every transfer in the queue" />
+      </ComboBox>
+    </Grid>
+    <TextBlock x:Name="ApplyNote" Style="{StaticResource Text.Small}" Margin="44,6,0,0" TextWrapping="Wrap"
+               Text="A file that is newer on the destination is never replaced by a choice made for many files; it is asked about separately." />
+
     <Grid Margin="0,20,0,0">
       <Button Content="Decide later" IsCancel="True" HorizontalAlignment="Left" MinWidth="96" ToolTip="Leave this file waiting in the queue. Other files continue." />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

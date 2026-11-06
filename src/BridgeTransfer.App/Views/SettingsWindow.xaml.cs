@@ -16,7 +16,10 @@ public partial class SettingsWindow
         var s = services.Settings;
         LightRadio.IsChecked = s.Theme == AppTheme.Light;
         DarkRadio.IsChecked = s.Theme == AppTheme.Dark;
-        ConcurrencyBox.SelectedIndex = Math.Clamp(s.MaxConcurrentTransfers, 1, 4) - 1;
+        ConcurrencyBox.ItemsSource = Enumerable.Range(1, BridgeTransfer.Core.Transfers.TransferQueue.MaxAllowedConcurrency).Select(n => n == 2 ? "2 (default)" : n.ToString()).ToList();
+        ConcurrencyBox.SelectedIndex = Math.Clamp(s.MaxConcurrentTransfers, 1, BridgeTransfer.Core.Transfers.TransferQueue.MaxAllowedConcurrency) - 1;
+        ExistsBox.ItemsSource = TransferConfirmWindow.Choices.Select(c => new TransferConfirmWindow.ChoiceItem(c)).ToList();
+        ExistsBox.SelectedIndex = Math.Max(0, Array.IndexOf(TransferConfirmWindow.Choices, s.WhenFileExists));
         TimestampsBox.IsChecked = s.PreserveTimestamps;
         ConfirmBox.IsChecked = s.ConfirmBeforeTransfer;
         ConnectTimeoutBox.Text = s.ConnectTimeoutSeconds.ToString();
@@ -41,6 +44,10 @@ public partial class SettingsWindow
         var s = _services.Settings;
         s.Theme = DarkRadio.IsChecked == true ? AppTheme.Dark : AppTheme.Light;
         s.MaxConcurrentTransfers = ConcurrencyBox.SelectedIndex + 1;
+        if (ExistsBox.SelectedItem is TransferConfirmWindow.ChoiceItem item)
+        {
+            s.WhenFileExists = item.Choice;
+        }
         s.PreserveTimestamps = TimestampsBox.IsChecked == true;
         s.ConfirmBeforeTransfer = ConfirmBox.IsChecked == true;
         s.ConnectTimeoutSeconds = ct;

@@ -279,11 +279,11 @@ public sealed partial class LocalFileStore : IFileStore
             return Task.CompletedTask;
         });
 
-    public Task SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken) =>
-        Guard(path, () =>
+    public Task<FileEntry?> SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken) =>
+        Guard<Task<FileEntry?>>(path, () =>
         {
             File.SetLastWriteTimeUtc(path, DateTime.SpecifyKind(modifiedUtc, DateTimeKind.Utc));
-            return Task.CompletedTask;
+            return Task.FromResult(ToEntry(new FileInfo(path)));
         });
 
     public Task<long?> GetAvailableSpaceAsync(string path, CancellationToken cancellationToken)

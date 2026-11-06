@@ -17,7 +17,7 @@ public sealed class AppSettings
 
     public AppTheme Theme { get; set; } = AppTheme.Light;
 
-    /// <summary>Number of files transferred at the same time (1 to 4).</summary>
+    /// <summary>Number of files transferred at the same time (1 to 10). Each uses its own SFTP connection.</summary>
     public int MaxConcurrentTransfers { get; set; } = 2;
 
     public int ConnectTimeoutSeconds { get; set; } = 20;
@@ -37,6 +37,9 @@ public sealed class AppSettings
     /// <summary>Show the destination paths and ask before starting each transfer.</summary>
     public bool ConfirmBeforeTransfer { get; set; } = true;
 
+    /// <summary>What to do when a file already exists, preselected for each new transfer.</summary>
+    public BridgeTransfer.Core.Transfers.ConflictChoice WhenFileExists { get; set; } = BridgeTransfer.Core.Transfers.ConflictChoice.Ask;
+
     public Guid? LastProfileId { get; set; }
 
     public string? LastLocalFolder { get; set; }
@@ -48,7 +51,7 @@ public sealed class AppSettings
     /// <summary>Clamps values loaded from disk into supported ranges.</summary>
     public AppSettings Normalize()
     {
-        MaxConcurrentTransfers = Math.Clamp(MaxConcurrentTransfers, 1, 4);
+        MaxConcurrentTransfers = Math.Clamp(MaxConcurrentTransfers, 1, 10);
         ConnectTimeoutSeconds = Math.Clamp(ConnectTimeoutSeconds, 5, 300);
         OperationTimeoutSeconds = Math.Clamp(OperationTimeoutSeconds, 10, 600);
         KeepAliveSeconds = Math.Clamp(KeepAliveSeconds, 0, 600);

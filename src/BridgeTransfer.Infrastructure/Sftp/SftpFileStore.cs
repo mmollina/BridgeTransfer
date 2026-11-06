@@ -20,7 +20,14 @@ public sealed class SftpFileStore : IFileStore, IDisposable
     {
         _client = client;
         _ownsClient = ownsClient;
+
+        // OpenSSH's SFTP rename refuses to overwrite an existing target (it links, then unlinks), so the
+        // extra existence check before a rename is only needed for other servers.
+        RenameRefusesExisting = client.ConnectionInfo?.ServerVersion?.Contains("OpenSSH", StringComparison.OrdinalIgnoreCase) == true;
     }
+
+    /// <summary>True when the server is known to refuse renaming onto an existing name.</summary>
+    public bool RenameRefusesExisting { get; }
 
     public EndpointSide Side => EndpointSide.Remote;
 
@@ -185,7 +192,7 @@ public sealed class SftpFileStore : IFileStore, IDisposable
     public Task MoveNoReplaceAsync(string from, string to, CancellationToken cancellationToken) =>
         RunAsync(to, async ct =>
         {
-            if (await ExistsUnlockedAsync(to, ct).ConfigureAwait(false))
+            if (!RenameRefusesExisting && await ExistsUnlockedAsync(to, ct).ConfigureAwait(false))
             {
                 throw new StoreException(FailureKind.AlreadyExists, $"{RemotePath.GetName(to)} already exists on the VM.");
             }
@@ -227,12 +234,15 @@ public sealed class SftpFileStore : IFileStore, IDisposable
     public Task DeleteOwnedFileAsync(string path, CancellationToken cancellationToken) =>
         RunAsync(path, ct => _client.DeleteFileAsync(path, ct), cancellationToken);
 
-    public Task SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken) =>
-        RunAsync(path, async ct =>
+    public Task<FileEntry?> SetModifiedTimeAsync(string path, DateTime modifiedUtc, CancellationToken cancellationToken) =>
+        RunAsync<FileEntry?>(path, async ct =>
         {
+            // One status request serves both the size check and the time change.
             var attrs = await _client.GetAttributesAsync(path, ct).ConfigureAwait(false);
+            var observed = ToEntry(path, RemotePath.GetName(path), attrs);
             attrs.LastWriteTimeUtc = DateTime.SpecifyKind(modifiedUtc, DateTimeKind.Utc);
             await Task.Run(() => _client.SetAttributes(path, attrs), ct).ConfigureAwait(false);
+            return observed with { ModifiedUtc = attrs.LastWriteTimeUtc };
         }, cancellationToken);
 
     public async Task<long?> GetAvailableSpaceAsync(string path, CancellationToken cancellationToken)

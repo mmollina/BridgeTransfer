@@ -326,8 +326,10 @@ public sealed partial class QueueViewModel : ObservableObject
                     continue;
                 }
 
-                var others = _queue.PendingConflicts.Count(c => c.JobId == request.JobId && c.TaskId != request.TaskId);
-                var answer = _dialogs.AskConflict(request, others);
+                var pending = _queue.PendingConflicts;
+                var inTransfer = pending.Count(c => c.JobId == request.JobId && c.TaskId != request.TaskId);
+                var inQueue = pending.Count(c => c.TaskId != request.TaskId);
+                var answer = _dialogs.AskConflict(request, inTransfer, inQueue);
                 if (answer is null)
                 {
                     // "Decide later": the file stays waiting; the queue row offers to resolve it.
@@ -335,7 +337,7 @@ public sealed partial class QueueViewModel : ObservableObject
                     break;
                 }
 
-                _queue.ResolveConflict(request, answer.Value.Choice, answer.Value.ApplyToRemaining);
+                _queue.ResolveConflict(request, answer.Value.Choice, answer.Value.Scope);
             }
         }
         finally

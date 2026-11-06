@@ -23,5 +23,8 @@ public interface IDialogService
 
     void ShowHostKeyChanged(HostKeyChangedException ex);
 
-    (ConflictChoice Choice, bool ApplyToRemaining)? AskConflict(ConflictRequest request, int otherWaiting);
+    (ConflictChoice Choice, ConflictScope Scope)? AskConflict(ConflictRequest request, int waitingInTransfer, int waitingInQueue);
+
+    /// <summary>Confirms a transfer and returns what to do with existing files, or null if cancelled.</summary>
+    ConflictChoice? ConfirmTransfer(string title, string message, string startText, ConflictChoice preselected);
 }

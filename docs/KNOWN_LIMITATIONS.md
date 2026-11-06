@@ -76,6 +76,9 @@ once with finite-field Diffie-Hellman (group-exchange-sha256, group16-sha512, gr
   not offer a user-facing hash verification in version 1 (the integration tests verify content with
   SHA-256).
 - Interrupted files **restart from byte 0**. There is no resume.
+- "Replace if newer / if the size differs / if newer or the size differs" compare the size and the
+  modification time (2-second tolerance). If a rule depends on "newer" and a time is unknown, the
+  file is asked about. A newer destination is never replaced by a batch-wide or preset choice.
 - Transient network errors are retried up to 3 attempts per file (delays 2 s, 6 s), each time on a
   new connection with the same host-key checks. Login failures, changed host keys, permission
   errors, full disks, a source that changed, and unresolved conflicts are not retried.
@@ -89,8 +92,24 @@ once with finite-field Diffie-Hellman (group-exchange-sha256, group16-sha512, gr
 - Permissions, owners, ACLs, extended attributes and alternate data streams are not copied.
 - File contents are copied byte for byte; there is no line-ending or encoding conversion and SSH
   compression is not enabled.
-- Two to four files at a time (default 2), each on its own SFTP connection. Folder scanning uses one
+- One to ten files at a time (default 2), each on its own SFTP connection. Folder scanning uses one
   connection per transfer.
+- Throughput for many small files is limited by round trips: with SSH.NET each file needs roughly a
+  dozen request/response exchanges (SSH.NET resolves the remote path before most operations, and the
+  temporary-file-then-rename procedure adds a few more). Measured through 30 ms of added network
+  delay: 200 files of 50 KB took 37 s with 2 at a time, 19 s with 4 and 14.5 s with 8; a single
+  200 MB file ran at 46 MB/s up and 62 MB/s down. Tools that write directly into the final file name
+  (for example FileZilla) need fewer exchanges per small file.
+- Existing files at the destination are found from one listing per destination folder, made while the
+  folders are prepared. Skip/ask decisions use that listing; any file that is actually written is
+  still protected by the exclusive create and the no-replace rename, so a stale listing costs time,
+  never data.
+- On OpenSSH servers (detected from the server's version string) the extra existence check before
+  the final rename is omitted, because OpenSSH's SFTP rename refuses to overwrite an existing name.
+  Other servers keep the check.
+- The queue journal (unfinished transfers and temporary files) survives an application crash but is
+  not forced to disk on every write, so a power failure can lose its last entries. Settings and
+  trusted host keys are always flushed to disk.
 
 ## Links, special files and names
 
