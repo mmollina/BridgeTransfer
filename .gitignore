@@ -1,0 +1,9 @@
+bin/
+obj/
+artifacts/
+dist/*
+!dist/.gitkeep
+*.user
+.vs/
+TestResults/
+tests/fixture/.run/

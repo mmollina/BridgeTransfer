@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>BridgeTransfer.App</RootNamespace>
+    <AssemblyName>BridgeTransfer</AssemblyName>
+    <AssemblyTitle>BridgeTransfer</AssemblyTitle>
+    <Description>BridgeTransfer - SFTP file transfers between Windows and a Linux VM</Description>
+    <ApplicationIcon>Assets\BridgeTransfer.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishAot>false</PublishAot>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BridgeTransfer.Core\BridgeTransfer.Core.csproj" />
+    <ProjectReference Include="..\BridgeTransfer.Infrastructure\BridgeTransfer.Infrastructure.csproj" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\BridgeTransfer.ico" />
+    <Resource Include="Assets\BridgeTransfer-64.png" />
+    <EmbeddedResource Include="..\..\THIRD-PARTY-NOTICES.txt" LogicalName="BridgeTransfer.THIRD-PARTY-NOTICES.txt" />
+  </ItemGroup>
+</Project>

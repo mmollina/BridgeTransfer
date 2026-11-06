@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BridgeTransfer.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BridgeTransfer.Core\BridgeTransfer.Core.csproj" />
+    <PackageReference Include="SSH.NET" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="BridgeTransfer.UnitTests" />
+    <InternalsVisibleTo Include="BridgeTransfer.IntegrationTests" />
+  </ItemGroup>
+</Project>
