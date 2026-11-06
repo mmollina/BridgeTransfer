@@ -16,6 +16,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <Deterministic>true</Deterministic>
+    <DebugType>embedded</DebugType>
 
     <!-- Pinned, reproducible restores -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>

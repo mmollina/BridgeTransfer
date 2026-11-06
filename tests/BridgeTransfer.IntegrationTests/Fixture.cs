@@ -41,6 +41,8 @@ public static class Env
 
     public static string Get(string key) => Values.Value![key];
 
+    public static bool Has(string key) => Values.Value?.ContainsKey(key) == true;
+
     public static string Host => Get("BT_IT_HOST");
 
     public static int Port => int.Parse(Get("BT_IT_PORT"));

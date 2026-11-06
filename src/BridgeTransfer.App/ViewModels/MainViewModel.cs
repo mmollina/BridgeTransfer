@@ -174,6 +174,11 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void PanelChanged(string? property)
     {
+        if (property is nameof(FilePanelViewModel.ShowHidden) && (Local.ShowHidden != ShowHidden || Remote.ShowHidden != ShowHidden))
+        {
+            ShowHidden = Local.ShowHidden != ShowHidden ? Local.ShowHidden : Remote.ShowHidden;
+        }
+
         if (property is nameof(FilePanelViewModel.SelectionText) or nameof(FilePanelViewModel.CountText))
         {
             OnPropertyChanged(nameof(SelectionStatus));
@@ -712,6 +717,23 @@ public sealed partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void DismissNotice() => Notice = null;
+
+    public int InterruptedCount => Services.Interrupted?.Jobs.Count ?? 0;
+
+    public bool HasInterrupted => InterruptedCount > 0;
+
+    public void RefreshInterrupted()
+    {
+        OnPropertyChanged(nameof(InterruptedCount));
+        OnPropertyChanged(nameof(HasInterrupted));
+    }
+
+    [RelayCommand]
+    private void ReviewInterrupted()
+    {
+        new Views.InterruptedJobsWindow(Services, this).ShowDialog();
+        RefreshInterrupted();
+    }
 
     public void SaveWindowState()
     {

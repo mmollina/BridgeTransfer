@@ -266,6 +266,14 @@
           </Button>
           <TextBlock Grid.Column="1" Text="{Binding Summary}" Style="{StaticResource Text.Small}" VerticalAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis" />
           <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <Button Command="{Binding DataContext.ReviewInterruptedCommand, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,8,0" MinHeight="30" Padding="10,4"
+                    Visibility="{Binding DataContext.HasInterrupted, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}"
+                    ToolTip="Transfers that did not finish in the last session. Review them; nothing restarts automatically.">
+              <StackPanel Orientation="Horizontal">
+                <c:Glyph Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Brush.Warning}" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding DataContext.InterruptedCount, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='Interrupted ({0})…'}" />
+              </StackPanel>
+            </Button>
             <ToggleButton IsChecked="{Binding StopStartingNew}" Padding="10,4" MinHeight="30"
                           ToolTip="Files already being copied finish; no new files start until you turn this off.">
               <StackPanel Orientation="Horizontal">

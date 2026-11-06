@@ -96,8 +96,8 @@ public sealed class HostKeyRejectedException : StoreException
 public static class SftpConnector
 {
     public const string SupportedKeyFormats =
-        "OpenSSH (\"BEGIN OPENSSH PRIVATE KEY\") and PEM/PKCS#8 keys of type RSA, ECDSA (256/384/521) and Ed25519, " +
-        "including OpenSSH keys encrypted with a passphrase (aes*-ctr, aes*-cbc, aes*-gcm, chacha20-poly1305, 3des-cbc).";
+        "OpenSSH keys (\"BEGIN OPENSSH PRIVATE KEY\", as made by ssh-keygen), PuTTY .ppk keys (versions 2 and 3) and PEM/PKCS#8 keys, " +
+        "of type Ed25519, ECDSA (256/384/521) or RSA, with or without a passphrase.";
 
     /// <summary>Loads the private key to check it, without modifying the file.</summary>
     public static PrivateKeyFile LoadKey(string path, string? passphrase)
@@ -123,8 +123,8 @@ public static class SftpConnector
         {
             throw new KeyFileException(
                 KeyFileProblem.UnsupportedFormat,
-                "This private key format is not supported. Supported: " + SupportedKeyFormats +
-                " PuTTY .ppk files should be exported to OpenSSH format with PuTTYgen. The key file was not changed.",
+                "This private key could not be read. Supported: " + SupportedKeyFormats +
+                " DSA keys and FIDO/security-key (sk-) keys are not supported. The key file was not changed.",
                 ex);
         }
     }
@@ -245,6 +245,18 @@ public static class SftpConnector
         {
             Timeout = options.ConnectTimeout,
         };
+        // Files are sent exactly as they are: no transport compression.
+        foreach (var name in info.CompressionAlgorithms.Keys.Where(k => k != "none").ToList())
+        {
+            info.CompressionAlgorithms.Remove(name);
+        }
+
+        // Outdated SHA-1 key exchanges are not offered.
+        foreach (var name in info.KeyExchangeAlgorithms.Keys.Where(k => k.EndsWith("-sha1", StringComparison.Ordinal)).ToList())
+        {
+            info.KeyExchangeAlgorithms.Remove(name);
+        }
+
         if (avoidX25519)
         {
             // Keep only finite-field Diffie-Hellman exchanges (2048 bits or more), which SSH.NET computes itself.

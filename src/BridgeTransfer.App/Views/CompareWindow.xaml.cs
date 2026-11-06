@@ -10,7 +10,18 @@ public partial class CompareWindow
         InitializeComponent();
         DataContext = vm;
         Closing += (_, _) => vm.CancelScanCommand.Execute(null);
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                Close();
+                e.Handled = true;
+            }
+        };
     }
+
+    // This window is not modal, so a cancel button would not close it on its own.
+    private void OnClose(object sender, System.Windows.RoutedEventArgs e) => Close();
 
     /// <summary>Space toggles the checkbox of the selected rows for keyboard users.</summary>
     private void OnGridKeyDown(object sender, KeyEventArgs e)

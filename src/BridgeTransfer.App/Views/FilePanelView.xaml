@@ -94,7 +94,7 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <Grid>
-          <TextBox x:Name="FilterBox" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=150}" Tag="Filter names in this folder (not a search)"
+          <TextBox x:Name="FilterBox" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=150}" Tag="Filter this folder"
                    Padding="28,5,8,5" AutomationProperties.Name="Filter names in this folder" ToolTip="Shows only items in this folder whose name contains the text. Subfolders are not searched." />
           <c:Glyph Data="{StaticResource Icon.Filter}" Width="14" Height="14" HorizontalAlignment="Left" Margin="9,0,0,0" Foreground="{DynamicResource Brush.TextMuted}" IsHitTestVisible="False" />
         </Grid>
@@ -108,6 +108,9 @@
           <Button Style="{StaticResource Button.Icon}" Command="{Binding CopyPathCommand}" ToolTip="Copy full path of the selected items" AutomationProperties.Name="Copy full path">
             <c:Glyph Data="{StaticResource Icon.Copy}" />
           </Button>
+          <ToggleButton Style="{StaticResource ToggleButton.Icon}" IsChecked="{Binding ShowHidden}" ToolTip="Show hidden items" AutomationProperties.Name="Show hidden items">
+            <c:Glyph Data="{StaticResource Icon.Eye}" />
+          </ToggleButton>
           <Button x:Name="OpenButton" Style="{StaticResource Button.Icon}" Command="{Binding OpenSelectedCommand}" ToolTip="Open with the associated Windows application" AutomationProperties.Name="Open with associated application">
             <c:Glyph Data="{StaticResource Icon.Open}" />
           </Button>

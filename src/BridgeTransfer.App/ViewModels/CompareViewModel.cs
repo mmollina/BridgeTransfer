@@ -32,9 +32,18 @@ public sealed partial class ComparisonRowViewModel : ObservableObject
 
     public string ActionText => Row.IsSelectable ? (Row.IsSelected ? Row.Action.Label() : "Not selected") : "No action";
 
-    public string SourceSize => Row.Source is { Kind: EntryKind.File } s ? Format.Bytes(s.Length) : Row.Source is null ? "—" : "folder";
+    public string SourceSize => Describe(Row.Source);
 
-    public string DestinationSize => Row.Destination is { Kind: EntryKind.File } d ? Format.Bytes(d.Length) : Row.Destination is null ? "—" : "folder";
+    public string DestinationSize => Describe(Row.Destination);
+
+    private static string Describe(ScannedItem? item) => item?.Kind switch
+    {
+        null => "\u2014",
+        EntryKind.File => Format.Bytes(item.Length),
+        EntryKind.Directory => "folder",
+        EntryKind.SymbolicLink => "link",
+        _ => "special",
+    };
 
     public string SourceTime => Row.Source is null ? "—" : Format.LocalTime(Row.Source.ModifiedUtc);
 
@@ -104,6 +113,7 @@ public sealed partial class CompareViewModel : ObservableObject
     private CancellationTokenSource? _scanCts;
     private ComparisonResult? _result;
     private TransferJob? _job;
+    private bool _applied;
 
     public CompareViewModel(AppServices services, IDialogService dialogs, string localRoot, string remoteRoot)
     {
@@ -221,6 +231,7 @@ public sealed partial class CompareViewModel : ObservableObject
         }
 
         _result = null;
+        _applied = false;
         Rows.Clear();
         Filters.Clear();
         HasResult = false;
@@ -363,6 +374,11 @@ public sealed partial class CompareViewModel : ObservableObject
 
     public void SelectionChanged()
     {
+        if (_applied)
+        {
+            return;
+        }
+
         if (_result is null)
         {
             ApplyText = "Nothing selected";
@@ -442,7 +458,7 @@ public sealed partial class CompareViewModel : ObservableObject
         SelectionChanged();
     }
 
-    private bool CanApply() => _result is not null && _result.Selected.Any() && !IsApplying && !IsScanning;
+    private bool CanApply() => _result is not null && !_applied && _result.Selected.Any() && !IsApplying && !IsScanning;
 
     [RelayCommand(CanExecute = nameof(CanApply))]
     private async Task ApplyAsync()
@@ -496,6 +512,9 @@ public sealed partial class CompareViewModel : ObservableObject
             _job = _services.Queue.EnqueueSync(key, Direction, _result.SourceRoot, _result.DestinationRoot, items, destination.CombineRelative);
             ProgressText = $"Applying through the transfer queue: {ApplyText.ToLowerInvariant()}. You can follow progress in the queue.";
             ResultText = null;
+            _applied = true;
+            ApplyText = "Applied \u2014 compare again for further changes";
+            ApplyCommand.NotifyCanExecuteChanged();
         }
         catch (Exception ex)
         {

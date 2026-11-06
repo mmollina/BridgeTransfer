@@ -69,7 +69,7 @@
         <Button Content="Cancel scan" Command="{Binding CancelScanCommand}" MinWidth="120" Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
       </StackPanel>
       <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-        <TextBlock Text="{Binding ProgressText}" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" />
+        <TextBlock Text="{Binding ProgressText}" TextWrapping="Wrap" Foreground="{DynamicResource Brush.Text}" />
         <ProgressBar IsIndeterminate="True" Margin="0,6,0,0" Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
       </StackPanel>
     </Grid>
@@ -176,17 +176,16 @@
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <StackPanel Orientation="Horizontal" IsEnabled="{Binding HasResult}">
+      <StackPanel Orientation="Horizontal" IsEnabled="{Binding HasResult}" VerticalAlignment="Center">
         <Button Content="Select proposed" Command="{Binding SelectProposedCommand}" ToolTip="New files and files that are newer on the source." />
         <Button Content="Select visible" Command="{Binding SelectVisibleCommand}" Margin="8,0,0,0" ToolTip="Selects visible rows except destination-newer and unclear-time rows, which must be ticked one by one." />
         <Button Content="Select none" Command="{Binding SelectNoneCommand}" Margin="8,0,0,0" />
       </StackPanel>
       <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center">
         <TextBlock Text="{Binding SummaryText}" Foreground="{DynamicResource Brush.TextMuted}" TextTrimming="CharacterEllipsis" />
-        <TextBlock Text="{Binding ResultText}" Foreground="{DynamicResource Brush.Text}" FontWeight="SemiBold" TextWrapping="Wrap" Visibility="{Binding ResultText, Converter={StaticResource Vis}}" />
       </StackPanel>
-      <StackPanel Grid.Column="2" Orientation="Horizontal">
-        <Button Content="Close" IsCancel="True" MinWidth="96" Margin="0,0,8,0" />
+      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button Content="Close" MinWidth="96" Margin="0,0,8,0" Click="OnClose" />
         <Button Style="{StaticResource Button.Primary}" Command="{Binding ApplyCommand}" MinWidth="220" AutomationProperties.Name="{Binding ApplyText}">
           <StackPanel Orientation="Horizontal">
             <c:Glyph Data="{StaticResource Icon.Transfer}" Margin="0,0,8,0" />

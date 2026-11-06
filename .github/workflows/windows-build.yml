@@ -1,0 +1,67 @@
+# Builds, unit-tests, publishes and smoke-launches BridgeTransfer on a Windows runner.
+# Prepared only: nothing is published or released by this workflow. It runs when the
+# repository owner pushes to a GitHub repository or starts it manually.
+name: windows-build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      CI: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Publish (build, unit tests, single-file exe)
+        shell: pwsh
+        run: |
+          ./scripts/build.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./scripts/test.ps1 -UnitOnly
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./scripts/publish.ps1 -SkipTests
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Smoke test the real executable from a folder with spaces
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'fresh folder with spaces'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item dist/BridgeTransfer.exe $dir
+          $env:BRIDGETRANSFER_DATA_DIR = Join-Path $env:RUNNER_TEMP 'bt data'
+          Push-Location $env:RUNNER_TEMP
+          $p = Start-Process -FilePath (Join-Path $dir 'BridgeTransfer.exe') -PassThru
+          Pop-Location
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
+            $p.Refresh()
+            if ($p.MainWindowHandle -ne 0) { break }
+            Start-Sleep -Milliseconds 500
+          }
+          if ($p.HasExited) { throw "BridgeTransfer exited early with code $($p.ExitCode)" }
+          if ($p.MainWindowHandle -eq 0) { throw 'No main window appeared within 60 seconds' }
+          Write-Host "Main window title: $($p.MainWindowTitle)"
+          $null = $p.CloseMainWindow()
+          if (-not $p.WaitForExit(30000)) { $p.Kill(); throw 'BridgeTransfer did not close cleanly' }
+          Get-ChildItem $env:BRIDGETRANSFER_DATA_DIR -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BridgeTransfer-win-x64
+          path: |
+            dist/BridgeTransfer.exe
+            dist/BridgeTransfer.exe.sha256
+          retention-days: 7

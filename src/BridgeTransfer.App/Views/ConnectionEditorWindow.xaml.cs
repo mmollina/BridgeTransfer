@@ -21,7 +21,7 @@ public partial class ConnectionEditorWindow
         _services = services;
         _dialogs = dialogs;
         InitializeComponent();
-        KeyFormats.Text = "Supported: " + SftpConnector.SupportedKeyFormats + " PuTTY .ppk keys are not supported; export them to OpenSSH format with PuTTYgen. The key file is only read, never changed or copied.";
+        KeyFormats.Text = "Supported: " + SftpConnector.SupportedKeyFormats + " The key file is only read; it is never changed or copied.";
     }
 
     public static ConnectionProfile? Edit(ConnectionProfile profile, bool isNew, AppServices services, IDialogService dialogs, bool readOnlyIdentity = false)

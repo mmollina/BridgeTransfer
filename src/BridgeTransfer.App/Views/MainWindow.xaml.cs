@@ -54,7 +54,8 @@ public partial class MainWindow
         MinHeight = Math.Min(MinHeight, area.Height);
         if (area.Height < 800)
         {
-            _queueHeight = new GridLength(190);
+            // Short screens (for example 1366 x 768, or 1920 x 1080 at 150%): give the file lists more room.
+            _queueHeight = new GridLength(area.Height < 740 ? 150 : 170);
             ApplyQueue();
         }
     }
@@ -66,6 +67,7 @@ public partial class MainWindow
         if (_vm.Services.Interrupted is { Jobs.Count: > 0 })
         {
             new InterruptedJobsWindow(_vm.Services, _vm).ShowDialog();
+            _vm.RefreshInterrupted();
         }
     }
 
@@ -215,7 +217,7 @@ public partial class MainWindow
         {
             var answer = MessageWindow.Show(
                 "Transfers are still running",
-                "If you exit now, running transfers are cancelled. Files that were being copied are removed from their temporary names and destinations are left unchanged. Unfinished transfers are listed the next time you start BridgeTransfer.",
+                "If you exit now, running and queued transfers are cancelled. Partly copied files are removed from their temporary names, and existing files at the destination are left unchanged. You can start the transfers again later.",
                 MessageKind.Warning,
                 null,
                 ("Keep open", false, false, true, true),

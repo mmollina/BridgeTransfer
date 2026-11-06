@@ -64,6 +64,7 @@ public partial class InterruptedJobsWindow
 
         _services.SaveInterrupted();
         Reload();
+        _main.RefreshInterrupted();
     }
 
     private void OnDismiss(object sender, RoutedEventArgs e)
@@ -117,6 +118,7 @@ public partial class InterruptedJobsWindow
 
         _services.SaveInterrupted();
         Reload();
+        _main.RefreshInterrupted();
         Status.Text = $"Removed {removed:N0} temporary file(s)." + (skipped > 0 ? $" {skipped:N0} could not be checked now (connect to the same server to remove files on the VM)." : "");
     }
 

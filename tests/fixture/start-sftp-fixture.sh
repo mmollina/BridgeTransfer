@@ -33,6 +33,11 @@ ssh-keygen -q -t ed25519 -N 'correct horse' -C bt-it-encrypted -f "$RUN/client_e
 ssh-keygen -q -t rsa -b 3072 -m PEM -N '' -C bt-it-rsa-pem -f "$RUN/client_rsa_pem"
 ssh-keygen -q -t ecdsa -b 256 -N '' -C bt-it-ecdsa -f "$RUN/client_ecdsa"
 ssh-keygen -q -t ed25519 -N '' -C bt-it-not-authorized -f "$RUN/client_unauthorized"
+if command -v puttygen >/dev/null; then
+  puttygen "$RUN/client_ed25519" -O private -o "$RUN/client_ed25519_v3.ppk"
+  puttygen "$RUN/client_rsa_pem" -O private --ppk-param version=2 -o "$RUN/client_rsa_v2.ppk"
+  puttygen "$RUN/client_ed25519" -O private -o "$RUN/client_ed25519_enc.ppk" --new-passphrase <(echo "ppk pass")
+fi
 cat "$RUN"/client_ed25519.pub "$RUN"/client_ed25519_enc.pub "$RUN"/client_rsa_pem.pub "$RUN"/client_ecdsa.pub > "$RUN/authorized_keys"
 chmod 644 "$RUN/authorized_keys"; chmod 600 "$RUN"/client_* "$RUN"/host*
 
@@ -80,5 +85,13 @@ BT_IT_KEY_ECDSA=$RUN/client_ecdsa
 BT_IT_KEY_UNAUTHORIZED=$RUN/client_unauthorized
 BT_IT_HOST_FINGERPRINT=$FP
 ENV
+if [[ -f "$RUN/client_ed25519_v3.ppk" ]]; then
+  cat >> "$RUN/fixture.env" <<ENV
+BT_IT_KEY_PPK3=$RUN/client_ed25519_v3.ppk
+BT_IT_KEY_PPK2_RSA=$RUN/client_rsa_v2.ppk
+BT_IT_KEY_PPK_ENC=$RUN/client_ed25519_enc.ppk
+BT_IT_KEY_PPK_ENC_PASSPHRASE=ppk pass
+ENV
+fi
 chmod 600 "$RUN/fixture.env"
 echo "SFTP fixture running on 127.0.0.1:$PORT (and :$PORT_NOREPLACE without posix-rename). Env: $RUN/fixture.env"

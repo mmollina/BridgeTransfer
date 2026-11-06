@@ -5,6 +5,13 @@ using BridgeTransfer.Infrastructure.Sftp;
 
 namespace BridgeTransfer.IntegrationTests;
 
+/// <summary>Runs alone: one test counts authentication lines in the shared sshd log.</summary>
+[CollectionDefinition("Serial", DisableParallelization = true)]
+public sealed class SerialCollection
+{
+}
+
+[Collection("Serial")]
 public class AuthAndHostKeyTests
 {
     [FixtureFact]
@@ -38,6 +45,33 @@ public class AuthAndHostKeyTests
         var ok = await ws.ConnectAsync(creds: new SessionCredentials(null, Env.Get("BT_IT_KEY_ENC_PASSPHRASE")));
         Assert.True(ok.IsConnected);
         Assert.Equal(before, Workspace.Sha256(keyPath));
+    }
+
+    [FixtureFact]
+    public async Task PuTTY_ppk_keys_v2_v3_and_encrypted_authenticate()
+    {
+        if (!Env.Has("BT_IT_KEY_PPK3"))
+        {
+            return; // Older fixture without generated .ppk keys (needs puttygen).
+        }
+
+        await using var ws = new Workspace();
+        foreach (var key in new[] { "BT_IT_KEY_PPK3", "BT_IT_KEY_PPK2_RSA" })
+        {
+            ws.Profile.PrivateKeyPath = Env.Get(key);
+            var store = await ws.ConnectAsync();
+            Assert.True(store.IsConnected);
+        }
+
+        ws.Profile.PrivateKeyPath = Env.Get("BT_IT_KEY_PPK_ENC");
+        var before = Workspace.Sha256(ws.Profile.PrivateKeyPath);
+        var missing = await Assert.ThrowsAsync<KeyFileException>(() => ws.ConnectAsync(creds: new SessionCredentials(null, null)));
+        Assert.Equal(KeyFileProblem.PassphraseRequired, missing.Problem);
+        var wrong = await Assert.ThrowsAsync<KeyFileException>(() => ws.ConnectAsync(creds: new SessionCredentials(null, "nope")));
+        Assert.Equal(KeyFileProblem.WrongPassphraseOrCorrupt, wrong.Problem);
+        var ok = await ws.ConnectAsync(creds: new SessionCredentials(null, Env.Get("BT_IT_KEY_PPK_ENC_PASSPHRASE")));
+        Assert.True(ok.IsConnected);
+        Assert.Equal(before, Workspace.Sha256(ws.Profile.PrivateKeyPath));
     }
 
     [FixtureFact]
