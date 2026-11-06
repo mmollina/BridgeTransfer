@@ -1,0 +1,39 @@
+<c:ThemedWindow x:Class="BridgeTransfer.App.Views.InterruptedJobsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:BridgeTransfer.App.Controls"
+        Title="Interrupted transfers" Width="820" Height="480" MinWidth="560" MinHeight="320">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <TextBlock Style="{StaticResource Text.Title}" Text="Transfers from the last session did not finish" />
+    <TextBlock Grid.Row="1" Style="{StaticResource Text.Muted}" Margin="0,6,0,12"
+               Text="Nothing has been restarted automatically. Files that were being copied never replaced anything under their final names. You can queue them again (all files are checked again, and existing files are asked about), remove the leftover temporary files this app created, or dismiss them." />
+    <Border Grid.Row="2" Style="{StaticResource Card}" ClipToBounds="True">
+      <DataGrid x:Name="Grid" Margin="1" SelectionMode="Extended" AutomationProperties.Name="Interrupted transfers">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Transfer" Binding="{Binding Name}" Width="2*" />
+          <DataGridTextColumn Header="Server" Binding="{Binding Server}" Width="*" />
+          <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="2*" />
+          <DataGridTextColumn Header="Last state" Binding="{Binding State}" Width="*" />
+          <DataGridTextColumn Header="Temporary files" Binding="{Binding StagingCount}" Width="110" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </Border>
+    <TextBlock x:Name="Status" Grid.Row="3" Style="{StaticResource Text.Muted}" Margin="0,10,0,0" />
+    <Grid Grid.Row="4" Margin="0,14,0,0">
+      <Button Content="Dismiss selected" HorizontalAlignment="Left" Click="OnDismiss" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Remove temporary files" Click="OnCleanup" Margin="0,0,8,0"
+                ToolTip="Deletes only the temporary .bt-staging files this application recorded, if they still exist. Nothing else is deleted." />
+        <Button Content="Queue again" Style="{StaticResource Button.Primary}" Click="OnRequeue" Margin="0,0,8,0" />
+        <Button Content="Close" IsCancel="True" MinWidth="96" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</c:ThemedWindow>

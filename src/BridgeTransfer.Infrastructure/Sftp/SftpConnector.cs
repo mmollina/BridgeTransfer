@@ -188,10 +188,73 @@ public static class SftpConnector
             methods.Add(kbd);
         }
 
+        try
+        {
+            return await ConnectOnceAsync(profile, methods, verifier, prompt, options, avoidX25519: false, cancellationToken).ConfigureAwait(false);
+        }
+        catch (StoreException ex) when (IsLocalCryptoGap(ex))
+        {
+            // The local crypto provider cannot do elliptic-curve key exchange (seen on some locked-down or
+            // emulated Windows environments). Retry once with finite-field Diffie-Hellman; host-key
+            // verification is unchanged.
+            OnKeyExchangeFallback?.Invoke("Elliptic-curve key exchange is not available from this system's crypto provider; using Diffie-Hellman key exchange (2048 bits or more) instead.");
+            try
+            {
+                return await ConnectOnceAsync(profile, methods, verifier, prompt, options, avoidX25519: true, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                key?.Dispose();
+                throw;
+            }
+        }
+        catch
+        {
+            key?.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>Raised (for logging) when key exchange falls back from Curve25519.</summary>
+    public static Action<string>? OnKeyExchangeFallback { get; set; }
+
+    private static bool IsLocalCryptoGap(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is PlatformNotSupportedException ||
+                (e is System.Security.Cryptography.CryptographicException && e.StackTrace?.Contains("KeyExchange", StringComparison.Ordinal) == true))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<SftpClient> ConnectOnceAsync(
+        ConnectionProfile profile,
+        List<AuthenticationMethod> methods,
+        HostKeyVerifier verifier,
+        HostKeyPrompt? prompt,
+        SftpConnectOptions options,
+        bool avoidX25519,
+        CancellationToken cancellationToken)
+    {
         var info = new ConnectionInfo(profile.Host, profile.Port, profile.Username, methods.ToArray())
         {
             Timeout = options.ConnectTimeout,
         };
+        if (avoidX25519)
+        {
+            // Keep only finite-field Diffie-Hellman exchanges (2048 bits or more), which SSH.NET computes itself.
+            foreach (var name in info.KeyExchangeAlgorithms.Keys.Where(k => !k.StartsWith("diffie-hellman-group-exchange-sha256", StringComparison.Ordinal) &&
+                                                                              !k.StartsWith("diffie-hellman-group16", StringComparison.Ordinal) &&
+                                                                              !k.StartsWith("diffie-hellman-group14-sha256", StringComparison.Ordinal)).ToList())
+            {
+                info.KeyExchangeAlgorithms.Remove(name);
+            }
+        }
 
         var client = new SftpClient(info)
         {
@@ -251,7 +314,6 @@ public static class SftpConnector
         catch (Exception ex)
         {
             client.Dispose();
-            key?.Dispose();
             if (mismatch is not null)
             {
                 throw new HostKeyChangedException(mismatch);

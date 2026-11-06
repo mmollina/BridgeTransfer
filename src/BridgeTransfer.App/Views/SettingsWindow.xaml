@@ -1,0 +1,73 @@
+<c:ThemedWindow x:Class="BridgeTransfer.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:BridgeTransfer.App.Controls"
+        Title="Settings" Width="560" SizeToContent="Height" ResizeMode="NoResize">
+  <StackPanel Margin="24,20,24,20">
+    <TextBlock Style="{StaticResource Text.Title}" Text="Settings" />
+
+    <TextBlock Style="{StaticResource Text.Section}" Text="Appearance" Margin="0,18,0,8" />
+    <StackPanel Orientation="Horizontal">
+      <RadioButton x:Name="LightRadio" Content="Light" GroupName="theme" />
+      <RadioButton x:Name="DarkRadio" Content="Dark" GroupName="theme" Margin="24,0,0,0" />
+    </StackPanel>
+
+    <TextBlock Style="{StaticResource Text.Section}" Text="Transfers" Margin="0,18,0,8" />
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="140" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <TextBlock Text="Files transferred at the same time" VerticalAlignment="Center" />
+      <ComboBox x:Name="ConcurrencyBox" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Files transferred at the same time">
+        <ComboBoxItem Content="1" />
+        <ComboBoxItem Content="2 (default)" />
+        <ComboBoxItem Content="3" />
+        <ComboBoxItem Content="4" />
+      </ComboBox>
+      <CheckBox x:Name="TimestampsBox" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0" Content="Preserve modification times" />
+      <CheckBox x:Name="ConfirmBox" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Content="Show destination and ask before each transfer" />
+      <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource Text.Small}" TextWrapping="Wrap" Margin="0,8,0,0"
+                 Text="Each file is written under a temporary name and renamed only after its size has been checked. An interrupted file restarts from the beginning; nothing is appended blindly." />
+    </Grid>
+
+    <TextBlock Style="{StaticResource Text.Section}" Text="Connection" Margin="0,18,0,8" />
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="140" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <TextBlock Text="Connection timeout (seconds)" VerticalAlignment="Center" />
+      <TextBox x:Name="ConnectTimeoutBox" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Connection timeout in seconds" />
+      <TextBlock Grid.Row="1" Text="Operation timeout (seconds)" VerticalAlignment="Center" />
+      <TextBox x:Name="OperationTimeoutBox" Grid.Row="1" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Operation timeout in seconds" />
+      <TextBlock Grid.Row="2" Text="Keepalive interval (seconds, 0 = off)" VerticalAlignment="Center" />
+      <TextBox x:Name="KeepAliveBox" Grid.Row="2" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Keepalive interval in seconds" />
+    </Grid>
+
+    <TextBlock Style="{StaticResource Text.Section}" Text="Support" Margin="0,18,0,8" />
+    <WrapPanel>
+      <Button Content="Open data folder" Click="OnOpenData" Margin="0,0,8,8" />
+      <Button Content="Export support log…" Click="OnExportLog" Margin="0,0,8,8" />
+      <Button Content="About and licenses" Click="OnAbout" Margin="0,0,8,8" />
+    </WrapPanel>
+    <TextBlock x:Name="DataPath" Style="{StaticResource Text.Small}" TextWrapping="Wrap" />
+
+    <TextBlock x:Name="Problem" Foreground="{DynamicResource Brush.Danger}" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+      <Button Content="Cancel" IsCancel="True" MinWidth="96" />
+      <Button Style="{StaticResource Button.Primary}" Content="Save" IsDefault="True" MinWidth="96" Margin="8,0,0,0" Click="OnSave" />
+    </StackPanel>
+  </StackPanel>
+</c:ThemedWindow>

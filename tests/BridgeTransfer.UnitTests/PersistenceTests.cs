@@ -35,7 +35,7 @@ public class PersistenceTests : IDisposable
         var paths = Paths();
         var store = new SettingsStore(paths);
         var s = store.Load().Settings;
-        s.Theme = ThemeMode.Dark;
+        s.Theme = AppTheme.Dark;
         s.MaxConcurrentTransfers = 3;
         s.Profiles.Add(new ConnectionProfile { DisplayName = "Lab VM", Host = "10.0.0.5", Port = 2200, Username = "me", PrivateKeyPath = @"C:\Users\me\.ssh\id_ed25519" });
         s.Bookmarks.Add(new FolderBookmark { Name = "Results", ProfileId = s.Profiles[0].Id, LocalRoot = @"C:\data", RemoteRoot = "/srv/data" });
@@ -43,7 +43,7 @@ public class PersistenceTests : IDisposable
 
         var loaded = new SettingsStore(paths).Load();
         Assert.Null(loaded.Warning);
-        Assert.Equal(ThemeMode.Dark, loaded.Settings.Theme);
+        Assert.Equal(AppTheme.Dark, loaded.Settings.Theme);
         Assert.Equal(3, loaded.Settings.MaxConcurrentTransfers);
         Assert.Equal(2200, loaded.Settings.Profiles[0].Port);
         Assert.Equal("/srv/data", loaded.Settings.Bookmarks[0].RemoteRoot);

@@ -1,0 +1,53 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Light theme color tokens. Every style refers to these through DynamicResource. -->
+  <Color x:Key="C.Window">#F4F5F7</Color>
+  <Color x:Key="C.Surface">#FFFFFF</Color>
+  <Color x:Key="C.SurfaceAlt">#F0F2F5</Color>
+  <Color x:Key="C.SurfaceHover">#E9ECF0</Color>
+  <Color x:Key="C.Border">#D9DDE3</Color>
+  <Color x:Key="C.BorderStrong">#B8BFC9</Color>
+  <Color x:Key="C.Text">#1B1F24</Color>
+  <Color x:Key="C.TextMuted">#58616C</Color>
+  <Color x:Key="C.TextDisabled">#9AA1AA</Color>
+  <Color x:Key="C.Accent">#1F6FEB</Color>
+  <Color x:Key="C.AccentHover">#195ECB</Color>
+  <Color x:Key="C.AccentPressed">#154FA9</Color>
+  <Color x:Key="C.AccentForeground">#1A62D6</Color>
+  <Color x:Key="C.AccentText">#FFFFFF</Color>
+  <Color x:Key="C.AccentSoft">#E3EDFD</Color>
+  <Color x:Key="C.AccentSoftStrong">#C9DCFB</Color>
+  <Color x:Key="C.Success">#1A7F37</Color>
+  <Color x:Key="C.SuccessSoft">#E4F4E8</Color>
+  <Color x:Key="C.Warning">#8A5A00</Color>
+  <Color x:Key="C.WarningSoft">#FBF1D9</Color>
+  <Color x:Key="C.Danger">#C4232D</Color>
+  <Color x:Key="C.DangerSoft">#FBE6E7</Color>
+  <Color x:Key="C.Overlay">#66000000</Color>
+  <Color x:Key="C.ScrollThumb">#B7BEC8</Color>
+
+  <SolidColorBrush x:Key="Brush.Window" Color="{StaticResource C.Window}" />
+  <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource C.Surface}" />
+  <SolidColorBrush x:Key="Brush.SurfaceAlt" Color="{StaticResource C.SurfaceAlt}" />
+  <SolidColorBrush x:Key="Brush.SurfaceHover" Color="{StaticResource C.SurfaceHover}" />
+  <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource C.Border}" />
+  <SolidColorBrush x:Key="Brush.BorderStrong" Color="{StaticResource C.BorderStrong}" />
+  <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource C.Text}" />
+  <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource C.TextMuted}" />
+  <SolidColorBrush x:Key="Brush.TextDisabled" Color="{StaticResource C.TextDisabled}" />
+  <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource C.Accent}" />
+  <SolidColorBrush x:Key="Brush.AccentHover" Color="{StaticResource C.AccentHover}" />
+  <SolidColorBrush x:Key="Brush.AccentPressed" Color="{StaticResource C.AccentPressed}" />
+  <SolidColorBrush x:Key="Brush.AccentForeground" Color="{StaticResource C.AccentForeground}" />
+  <SolidColorBrush x:Key="Brush.AccentText" Color="{StaticResource C.AccentText}" />
+  <SolidColorBrush x:Key="Brush.AccentSoft" Color="{StaticResource C.AccentSoft}" />
+  <SolidColorBrush x:Key="Brush.AccentSoftStrong" Color="{StaticResource C.AccentSoftStrong}" />
+  <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource C.Success}" />
+  <SolidColorBrush x:Key="Brush.SuccessSoft" Color="{StaticResource C.SuccessSoft}" />
+  <SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource C.Warning}" />
+  <SolidColorBrush x:Key="Brush.WarningSoft" Color="{StaticResource C.WarningSoft}" />
+  <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource C.Danger}" />
+  <SolidColorBrush x:Key="Brush.DangerSoft" Color="{StaticResource C.DangerSoft}" />
+  <SolidColorBrush x:Key="Brush.Overlay" Color="{StaticResource C.Overlay}" />
+  <SolidColorBrush x:Key="Brush.ScrollThumb" Color="{StaticResource C.ScrollThumb}" />
+</ResourceDictionary>

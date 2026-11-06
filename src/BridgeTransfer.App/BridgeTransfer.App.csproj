@@ -4,6 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>BridgeTransfer.App</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>BridgeTransfer</AssemblyName>
     <AssemblyTitle>BridgeTransfer</AssemblyTitle>
     <Description>BridgeTransfer - SFTP file transfers between Windows and a Linux VM</Description>

@@ -1,0 +1,17 @@
+<c:ThemedWindow x:Class="BridgeTransfer.App.Views.PromptWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:BridgeTransfer.App.Controls"
+        Title="BridgeTransfer" Width="460" SizeToContent="Height" ResizeMode="NoResize">
+  <StackPanel Margin="24,20,24,20">
+    <TextBlock x:Name="Heading" Style="{StaticResource Text.Title}" TextWrapping="Wrap" />
+    <TextBlock x:Name="LabelText" Style="{StaticResource Text.Muted}" Margin="0,8,0,8" />
+    <TextBox x:Name="Input" TextChanged="OnTextChanged" />
+    <PasswordBox x:Name="Secret" Visibility="Collapsed" />
+    <TextBlock x:Name="Problem" Foreground="{DynamicResource Brush.Danger}" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+      <Button Content="Cancel" IsCancel="True" MinWidth="96" />
+      <Button x:Name="Ok" Style="{StaticResource Button.Primary}" Content="OK" IsDefault="True" MinWidth="96" Margin="8,0,0,0" Click="OnOk" />
+    </StackPanel>
+  </StackPanel>
+</c:ThemedWindow>

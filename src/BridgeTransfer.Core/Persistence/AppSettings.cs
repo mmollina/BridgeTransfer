@@ -2,7 +2,7 @@ using BridgeTransfer.Core.Models;
 
 namespace BridgeTransfer.Core.Persistence;
 
-public enum ThemeMode
+public enum AppTheme
 {
     Light,
     Dark,
@@ -15,7 +15,7 @@ public sealed class AppSettings
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
-    public ThemeMode Theme { get; set; } = ThemeMode.Light;
+    public AppTheme Theme { get; set; } = AppTheme.Light;
 
     /// <summary>Number of files transferred at the same time (1 to 4).</summary>
     public int MaxConcurrentTransfers { get; set; } = 2;
@@ -33,6 +33,9 @@ public sealed class AppSettings
     public bool QueueCollapsed { get; set; }
 
     public bool PreserveTimestamps { get; set; } = true;
+
+    /// <summary>Show the destination paths and ask before starting each transfer.</summary>
+    public bool ConfirmBeforeTransfer { get; set; } = true;
 
     public Guid? LastProfileId { get; set; }
 

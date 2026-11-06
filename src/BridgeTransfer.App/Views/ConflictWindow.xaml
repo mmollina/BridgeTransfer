@@ -1,0 +1,54 @@
+<c:ThemedWindow x:Class="BridgeTransfer.App.Views.ConflictWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:BridgeTransfer.App.Controls"
+        Title="File already exists" Width="600" SizeToContent="Height" ResizeMode="NoResize">
+  <StackPanel Margin="24,20,24,20">
+    <StackPanel Orientation="Horizontal">
+      <Border x:Name="Badge" Width="32" Height="32" CornerRadius="16" Background="{DynamicResource Brush.WarningSoft}">
+        <c:Glyph Data="{StaticResource Icon.Question}" Width="18" Height="18" Foreground="{DynamicResource Brush.Warning}" />
+      </Border>
+      <TextBlock x:Name="Heading" Style="{StaticResource Text.Title}" Margin="12,5,0,0" TextWrapping="Wrap" MaxWidth="480" />
+    </StackPanel>
+    <TextBox x:Name="PathText" Style="{StaticResource Text.Mono}" Margin="44,8,0,0" Foreground="{DynamicResource Brush.TextMuted}" />
+    <Border Style="{StaticResource Card}" Margin="44,14,0,0" Padding="14,10">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Column="1" x:Name="SourceHeader" Style="{StaticResource Text.Section}" Margin="0,0,0,6" />
+        <TextBlock Grid.Column="2" x:Name="DestHeader" Style="{StaticResource Text.Section}" Margin="0,0,0,6" />
+        <TextBlock Grid.Row="1" Text="Size" Style="{StaticResource Text.Small}" Margin="0,3,16,3" />
+        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SourceSize" Margin="0,3" />
+        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="DestSize" Margin="0,3" />
+        <TextBlock Grid.Row="2" Text="Modified" Style="{StaticResource Text.Small}" Margin="0,3,16,3" />
+        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SourceTime" Margin="0,3" />
+        <TextBlock Grid.Row="2" Grid.Column="2" x:Name="DestTime" Margin="0,3" />
+      </Grid>
+    </Border>
+    <Border x:Name="NewerBanner" Style="{StaticResource Banner}" Margin="44,12,0,0" Visibility="Collapsed">
+      <StackPanel Orientation="Horizontal">
+        <c:Glyph Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Brush.Warning}" VerticalAlignment="Top" Margin="0,1,8,0" />
+        <TextBlock x:Name="NewerText" TextWrapping="Wrap" MaxWidth="450" />
+      </StackPanel>
+    </Border>
+    <CheckBox x:Name="ApplyAll" Margin="44,14,0,0" Content="Apply to the remaining conflicts in this transfer" />
+    <TextBlock x:Name="ApplyNote" Style="{StaticResource Text.Small}" Margin="70,4,0,0" TextWrapping="Wrap"
+               Text="Newer files on the destination are always asked about one by one." />
+    <Grid Margin="0,20,0,0">
+      <Button Content="Decide later" IsCancel="True" HorizontalAlignment="Left" MinWidth="96" ToolTip="Leave this file waiting in the queue. Other files continue." />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button x:Name="SkipButton" Content="Skip" MinWidth="88" Click="OnSkip" IsDefault="True" ToolTip="Leave the existing file unchanged and do not copy this one." />
+        <Button x:Name="KeepBothButton" Content="Keep both" MinWidth="104" Margin="8,0,0,0" Click="OnKeepBoth" ToolTip="Copy this file under a new name such as “name (2).ext”." />
+        <Button x:Name="ReplaceButton" Style="{StaticResource Button.Primary}" Content="Replace" MinWidth="104" Margin="8,0,0,0" Click="OnReplace" ToolTip="Replace the existing file. It stays in place until the new copy is complete." />
+      </StackPanel>
+    </Grid>
+  </StackPanel>
+</c:ThemedWindow>

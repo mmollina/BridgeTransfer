@@ -1,0 +1,199 @@
+<c:ThemedWindow x:Class="BridgeTransfer.App.Views.CompareWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:BridgeTransfer.App.Controls"
+        Title="Compare folders" Width="1240" Height="760" MinWidth="900" MinHeight="560">
+  <c:ThemedWindow.Resources>
+    <c:BoolToVisibilityConverter x:Key="Vis" />
+    <c:BoolToVisibilityConverter x:Key="NotVis" Invert="True" />
+    <c:InverseBoolConverter x:Key="Not" />
+  </c:ThemedWindow.Resources>
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Folders and direction -->
+    <Border Style="{StaticResource Card}" Padding="16,12">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+          <c:Glyph Data="{StaticResource Icon.Computer}" Margin="0,0,8,0" />
+          <TextBlock Text="This computer" Width="110" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBox Grid.Column="1" Text="{Binding LocalRoot, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" AutomationProperties.Name="Folder on this computer"
+                 IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}" />
+        <Button Grid.Column="2" Content="Browse…" Command="{Binding BrowseLocalCommand}" Margin="8,3,0,3" />
+        <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+          <c:Glyph Data="{StaticResource Icon.Server}" Margin="0,0,8,0" />
+          <TextBlock Text="Linux VM" Width="110" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding RemoteRoot, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" AutomationProperties.Name="Folder on the Linux VM"
+                 IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}" />
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,12,0,0">
+          <TextBlock Text="Direction" Width="140" VerticalAlignment="Center" />
+          <RadioButton Content="Upload changes  (This computer → Linux VM)" IsChecked="{Binding IsUpload}" GroupName="dir" />
+          <RadioButton Content="Download changes  (Linux VM → This computer)" IsChecked="{Binding IsDownload}" GroupName="dir" Margin="24,0,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Scan controls and progress -->
+    <Grid Grid.Row="1" Margin="0,12,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal">
+        <Button Style="{StaticResource Button.Primary}" Command="{Binding ScanCommand}" MinWidth="120"
+                Visibility="{Binding IsScanning, Converter={StaticResource NotVis}}">
+          <StackPanel Orientation="Horizontal">
+            <c:Glyph Data="{StaticResource Icon.Search}" Margin="0,0,8,0" />
+            <TextBlock Text="Compare" />
+          </StackPanel>
+        </Button>
+        <Button Content="Cancel scan" Command="{Binding CancelScanCommand}" MinWidth="120" Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+        <TextBlock Text="{Binding ProgressText}" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" />
+        <ProgressBar IsIndeterminate="True" Margin="0,6,0,0" Visibility="{Binding IsScanning, Converter={StaticResource Vis}}" />
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="2" Style="{StaticResource Banner}" Margin="0,12,0,0" Visibility="{Binding WarningText, Converter={StaticResource Vis}}">
+      <StackPanel Orientation="Horizontal">
+        <c:Glyph Data="{StaticResource Icon.Warning}" Foreground="{DynamicResource Brush.Warning}" VerticalAlignment="Top" Margin="0,1,8,0" />
+        <TextBlock Text="{Binding WarningText}" TextWrapping="Wrap" MaxWidth="1000" />
+      </StackPanel>
+    </Border>
+
+    <!-- Filters -->
+    <Grid Grid.Row="3" Margin="0,12,0,8" Visibility="{Binding HasResult, Converter={StaticResource Vis}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <ItemsControl ItemsSource="{Binding Filters}" AutomationProperties.Name="Show categories">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <CheckBox Content="{Binding Label}" IsChecked="{Binding Include}" Margin="0,4,16,4" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBox Grid.Column="1" Width="220" Tag="Filter by path" Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}" VerticalAlignment="Top"
+               AutomationProperties.Name="Filter rows by path" />
+    </Grid>
+
+    <!-- Preview -->
+    <Border Grid.Row="4" Style="{StaticResource Card}" ClipToBounds="True">
+      <Grid>
+        <DataGrid x:Name="RowsGrid" Margin="1" ItemsSource="{Binding RowsView}" SelectionMode="Extended" IsReadOnly="False"
+                  AutomationProperties.Name="Comparison preview" PreviewKeyDown="OnGridKeyDown">
+          <DataGrid.Columns>
+            <DataGridTemplateColumn Header="Copy" Width="56" CanUserSort="True" SortMemberPath="IsSelected">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsSelectable}" HorizontalAlignment="Center"
+                            AutomationProperties.Name="{Binding Path}" Focusable="False" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="2.4*" MinWidth="180" IsReadOnly="True">
+              <DataGridTextColumn.ElementStyle>
+                <Style TargetType="TextBlock">
+                  <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                  <Setter Property="ToolTip" Value="{Binding Path}" />
+                </Style>
+              </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+            <DataGridTemplateColumn Header="Category" Width="190" SortMemberPath="CategoryText">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="Dot" Width="8" Height="8" Margin="0,0,8,0" Fill="{DynamicResource Brush.TextMuted}" />
+                    <TextBlock Text="{Binding CategoryText}" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding Tone}" Value="active">
+                      <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Brush.Accent}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="warn">
+                      <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Brush.Warning}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tone}" Value="bad">
+                      <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource Brush.Danger}" />
+                    </DataTrigger>
+                  </DataTemplate.Triggers>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Action" Binding="{Binding ActionText}" Width="104" IsReadOnly="True" />
+            <DataGridTextColumn Header="Source size" Binding="{Binding SourceSize}" Width="84" IsReadOnly="True" />
+            <DataGridTextColumn Header="Source modified" Binding="{Binding SourceTime}" Width="128" IsReadOnly="True" />
+            <DataGridTextColumn Header="Dest. size" Binding="{Binding DestinationSize}" Width="84" IsReadOnly="True" />
+            <DataGridTextColumn Header="Dest. modified" Binding="{Binding DestinationTime}" Width="128" IsReadOnly="True" />
+            <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="2*" MinWidth="160" IsReadOnly="True">
+              <DataGridTextColumn.ElementStyle>
+                <Style TargetType="TextBlock">
+                  <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                  <Setter Property="ToolTip" Value="{Binding Reason}" />
+                </Style>
+              </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560" Visibility="{Binding HasResult, Converter={StaticResource NotVis}}">
+          <c:Glyph Data="{StaticResource Icon.Compare}" Width="40" Height="40" Foreground="{DynamicResource Brush.TextMuted}" StrokeThickness="1.2" />
+          <TextBlock Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,12,0,0"
+                     Text="One-way synchronization copies new and changed files from the source to the destination. Nothing is ever deleted, and you review every change before anything is copied." />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Selection and apply -->
+    <Grid Grid.Row="5" Margin="0,14,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal" IsEnabled="{Binding HasResult}">
+        <Button Content="Select proposed" Command="{Binding SelectProposedCommand}" ToolTip="New files and files that are newer on the source." />
+        <Button Content="Select visible" Command="{Binding SelectVisibleCommand}" Margin="8,0,0,0" ToolTip="Selects visible rows except destination-newer and unclear-time rows, which must be ticked one by one." />
+        <Button Content="Select none" Command="{Binding SelectNoneCommand}" Margin="8,0,0,0" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center">
+        <TextBlock Text="{Binding SummaryText}" Foreground="{DynamicResource Brush.TextMuted}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding ResultText}" Foreground="{DynamicResource Brush.Text}" FontWeight="SemiBold" TextWrapping="Wrap" Visibility="{Binding ResultText, Converter={StaticResource Vis}}" />
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal">
+        <Button Content="Close" IsCancel="True" MinWidth="96" Margin="0,0,8,0" />
+        <Button Style="{StaticResource Button.Primary}" Command="{Binding ApplyCommand}" MinWidth="220" AutomationProperties.Name="{Binding ApplyText}">
+          <StackPanel Orientation="Horizontal">
+            <c:Glyph Data="{StaticResource Icon.Transfer}" Margin="0,0,8,0" />
+            <TextBlock Text="{Binding ApplyText}" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</c:ThemedWindow>
